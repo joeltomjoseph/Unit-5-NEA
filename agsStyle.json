@@ -1,4 +1,5 @@
-USER_THEMES = {
+{
+"themes": {
     "ags": {
         "type": "light",
         "colors": {
@@ -20,4 +21,5 @@ USER_THEMES = {
             "active": "#f5f5f5"
         }
     }
+}
 }

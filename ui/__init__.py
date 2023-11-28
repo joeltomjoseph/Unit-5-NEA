@@ -1,88 +1,130 @@
 import tkinter as tk
 import ttkbootstrap as ttk
+from PIL import Image, ImageTk
 
 ''' Constants '''
-COLORS = {
-    'fg': '#5c616c',
-    'bg': '#f5f6f7',
-    'disabledbg': '#fbfcfc',
-    'disabledfg': '#a9acb2',
-    'selectbg': '#5294e2',
-    'selectfg': '#ffffff',
-    'window': '#ffffff',
-    'focuscolor': '#5c616c',
-    'checklight': '#fbfcfc'
+COLOURS = {
+    "primary": "#3d4b74",
+    "secondary": "#fbc536",
+    "success": "#02b875",
+    "info": "#17a2b8",
+    "warning": "#f0ad4e",
+    "danger": "#d9534f",
+    "light": "#F8F9FA",
+    "dark": "#343A40",
+    "bg": "#ffffff",
+    "fg": "#343a40",
+    "selectbg": "#adb5bd",
+    "selectfg": "#ffffff",
+    "border": "#bfbfbf",
+    "inputfg": "#343a40",
+    "inputbg": "#ffffff",
+    "active": "#f5f5f5"
 }
 
 # Fonts
-BODY_FONT = 'TkTextFont'
-HEADING_FONT = 'TkHeadingFont 20 bold'
+BODY_FONT = 'TkTextFont 18'
+HEADING_FONT = 'TkHeadingFont 38 bold'
 ITALIC_CAPTION_FONT = 'TEMP - set in main.py when MainApp is initialised'
 BOLD_CAPTION_FONT = 'TEMP - set in main.py when MainApp is initialised'
-TOOLTIP_FONT = 'TkTooltipFont 11'
-TEXT_ENTRY_FONT = 'TkTextFont 11'
+TOOLTIP_FONT = 'TkTooltipFont 13'
+TEXT_ENTRY_FONT = 'TkTextFont 15'
 
-#Tooltip class and create_tooltip function adapted from
+def createWidgetStyles(style):
+    ''' Creates the custom styles for the widgets which overwrite the base styles from the theme '''
+    # Test styles for debugging
+    style.configure('test.TFrame', background='red')
+
+    # Text
+    style.configure('TLabel', font=BODY_FONT)
+    style.configure('Heading.TLabel', font=HEADING_FONT, background=COLOURS["primary"], foreground='#ffffff')
+    style.configure('ItalicCaption.TLabel', font=ITALIC_CAPTION_FONT)
+    style.configure('BoldCaption.TLabel', font=BOLD_CAPTION_FONT)
+    style.configure('Entry.TLabel', font=TEXT_ENTRY_FONT)
+
+    # Menu bar
+    style.configure('mb.TFrame', background='#3D4B74')
+    style.configure("mt.TLabel", font=("Arial", 16, "bold"), foreground="#ffffff", background="#3D4B74")
+    style.configure("Close.secondary.TButton", foreground='black', font=('TkTextFont 15 bold'), width=10)
+
+    # Login Screen
+    style.configure('Items.TFrame', background='#EEEEEE', padding=(20, 20, 20, 20))
+
+def createStyle():
+    ''' Initialises the style and loads the theme for the entire application '''
+    style = ttk.Style()
+    ttk.Style.load_user_themes(style, 'agsStyle.json')
+    style.theme_use('ags')
+    createWidgetStyles(style)
+    return style
+
+#Tooltip class and functions adapted from
 #https://stackoverflow.com/questions/20399243/display-message-when-hovering-over-something-with-mouse-cursor-in-python
 class ToolTip:
+    ''' Class to create a tooltip for a given widget. With customisable text. '''
     def __init__(self, widget: tk.Widget):
         self.widget = widget
-        self.tip_window = None
+        self.tipWindow = None
         self.id = None
         self.text = ''
         self.x = self.y = 0
 
-    def show_tooltip(self, text: str):
-        """
-        Display text in a tooltip window
-        """
+    def showTooltip(self, text: str):
+        ''' Display text in a tooltip window '''
         self.text = text
-        if self.tip_window or not self.text:
+        if self.tipWindow or not self.text:
             return
         x = self.widget.winfo_pointerx() + 8
         y = self.widget.winfo_pointery() + 8
-        self.tip_window = tk.Toplevel(self.widget)
-        self.tip_window.wm_overrideredirect(1)
-        self.tip_window.wm_geometry(f'+{x}+{y}')
-        label = ttk.Label(self.tip_window, text=self.text, justify='left',
+        self.tipWindow = tk.Toplevel(self.widget)
+        self.tipWindow.wm_overrideredirect(1)
+        self.tipWindow.wm_geometry(f'+{x}+{y}')
+        label = ttk.Label(self.tipWindow, text=self.text, justify='left',
                           background='#ffffff', relief='flat', borderwidth=1,
                           font=TOOLTIP_FONT)
         label.pack(ipadx=1)
 
-    def hide_tooltip(self):
-        if self.tip_window:
-            self.tip_window.destroy()
-        self.tip_window = None
+    def hideTooltip(self):
+        if self.tipWindow:
+            self.tipWindow.destroy()
+        self.tipWindow = None
 
-def create_tooltip(widget: tk.Widget, text: str):
-    """
-    Create a tooltip with text that is shown when the user hovers over widget.
-    """
+def createTooltip(widget: tk.Widget, text: str):
+    ''' Initialise a tooltip with text that is shown when the user hovers over widget. '''
     tool_tip = ToolTip(widget)
 
     def enter(tk_event: tk.Event):
-        tool_tip.show_tooltip(text)
+        tool_tip.showTooltip(text)
 
     def leave(tk_event: tk.Event):
-        tool_tip.hide_tooltip()
+        tool_tip.hideTooltip()
 
     widget.bind('<Enter>', enter)
     widget.bind('<Leave>', leave)
 
 class PageStructure(ttk.Frame):
+    ''' Base class for all pages '''
     def __init__(self, parent, controller):
         super().__init__(parent)
 
 class MenuBar(ttk.Frame):
+    ''' Class to create the menu bar shown on many pages '''
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
 
         self.pack(side='top', fill='x')
+
+        self.configure(style='mb.TFrame')
         
         # Create title label
-        title_label = ttk.Label(self, text="Sound and Lighting")
-        title_label.pack(side="left", padx=10, pady=5)
-        
+        self.logo = ImageTk.PhotoImage(Image.open("images/ags.png").resize((50, 50), Image.LANCZOS))
+        self.titleLabel = ttk.Label(self, text="Sound and Lighting", image=self.logo, compound='left', style='mt.TLabel')
+        self.titleLabel.pack(side="left", padx=10, pady=5)
+
         # Create close button
-        close_button = ttk.Button(self, text="Close", command=self.quit)
-        close_button.pack(side="right", padx=10, pady=5)
+        closeButton = ttk.Button(self, text="Close", command=self.quit, style='Close.secondary.TButton')
+        closeButton.pack(side="right", padx=10, pady=5)
+
+        # Create FAQ/Help button
+        helpButton = ttk.Button(self, text="FAQ", command=None, style='Close.secondary.TButton')
+        helpButton.pack(side="right", padx=10, pady=5)

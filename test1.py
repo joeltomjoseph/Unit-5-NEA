@@ -1,4 +1,8 @@
-USER_THEMES = {
+import ttkbootstrap as ttk
+
+
+dict = {
+"themes": {
     "ags": {
         "type": "light",
         "colors": {
@@ -21,3 +25,11 @@ USER_THEMES = {
         }
     }
 }
+}
+
+themes = dict['themes']
+for theme in themes:
+    for name, definition in themes.items():
+        print(name)
+        print(definition)
+        print('\n')

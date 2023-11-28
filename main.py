@@ -12,12 +12,12 @@ class MainApp(tk.Tk):
         # Setting up Starting Window
         self.title('AGS Sound and Lighting')
         self.iconphoto(True, tk.PhotoImage(file='images/ags.gif'))
-        self.geometry('800x800+0+0')
+        self.geometry('1000x900+0+0')
         #self.state('zoomed')
-        self.minsize(600,600)
-        
+        self.minsize(1000,900)
+        self.style = ui.createStyle() # Initialise the ttkbootstrap style
 
-        #Initialising some required fonts now 
+        #Initialising some required fonts 
         fontCaption = font.nametofont('TkCaptionFont')
         # Setting a caption font as italic
         fontCaption['size'], fontCaption['slant'] = 10, 'italic'
@@ -29,105 +29,99 @@ class MainApp(tk.Tk):
         mainFrame = ttk.Frame(self)
         mainFrame.pack(side='top', fill='both', expand=True)
 
-        #self.menuBar = ui.MenuBar(mainFrame)
-
         contentFrame = ttk.Frame(mainFrame)
         contentFrame.pack(side='top', fill='both', expand=True)
         contentFrame.grid_rowconfigure(0, weight=1)
         contentFrame.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-
+        # Initialise all the pages
         for F in (LoginPage, PageOne, PageTwo):
             frame = F(contentFrame, self)
             self.frames[F] = frame
             frame.grid(row=0, column=0, sticky='nsew')
-            
-
+        # Show the login page
         frame = LoginPage(contentFrame, self)
         self.frames[LoginPage] = frame
         frame.grid(row=0, column=0, sticky='nsew')
-        self.show_frame(LoginPage)
+        self.showFrame(LoginPage)
     
-    def show_frame(self, cont):
+    def showFrame(self, cont, *args):
+        ''' Show the frame for the given page name '''
         frame = self.frames[cont]
         frame.tkraise()
-
-    def login(self):
-        self.destroy()
 
 class LoginPage(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
-
-        self.configure(padding=None)
         
-        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0, relief='ridge')
+        self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, relief='ridge')
         self.canvas.pack(side='top', fill="both", expand=True)
-        self.canvasItemsFrame = ttk.Frame(style='Items.TFrame')
-        self.canvasItemsFrame.pack()
-
-        # Set up the background image
-        # self.background_image = tk.PhotoImage(file="backdrop.png")
-        # self.background_label = ttk.Label(self.canvas, image=self.background_image)
-        # self.background_label.place(x=0, y=0, relwidth=1, relheight=1)
-
-        self.image = Image.open("images/backdrop.png")
-        self.img_copy= self.image.copy()
-
-        self.background_image = ImageTk.PhotoImage(self.image)
-
-        self.background = ttk.Label(self.canvas, image=self.background_image)
-        self.background.bind('<Configure>', self._resize_image)
-        self.background.pack(fill='both', expand=True)
         
         # Set up the title label
-        self.title_label = ttk.Label(self.canvasItemsFrame, text="Login", style="Heading.TLabel")
-        self.title_label.pack(pady=20)
+        self.logo = ImageTk.PhotoImage(Image.open("images/ags.png").resize((100, 100), Image.LANCZOS))
+        self.titleLabel = ttk.Label(self.canvas, text="Sound and Lighting", image=self.logo, compound='left', style='Heading.TLabel')
+        
+        #Create frame to hold login form
+        self.canvasItemsFrame = ttk.Frame(self.canvas)
+
+        # Set up the background image
+        self.image = Image.open("images/backdrop.png")
+        self.imgCopy= self.image.copy()
+        self.backgroundImage = ImageTk.PhotoImage(self.image)
+        self.background = self.canvas.create_image(0, 0, image=self.backgroundImage, anchor='nw')
         
         # Set up the username label and field
-        self.username_label = ttk.Label(self.canvasItemsFrame, text="Username")
-        self.username_label.pack(pady=10)
-        self.username_field = ttk.Entry(self.canvasItemsFrame)
-        self.username_field.pack(pady=5)
+        self.usernameLabel = ttk.Label(self.canvasItemsFrame, text="Username")
+        self.usernameLabel.pack(pady=10)
+        self.usernameField = ttk.Entry(self.canvasItemsFrame)
+        self.usernameField.pack(pady=5, padx=20)
         
         # Set up the password label, field, and show password toggle
-        self.password_label = ttk.Label(self.canvasItemsFrame, text="Password")
-        self.password_label.pack(pady=10)
-        self.password_field = ttk.Entry(self.canvasItemsFrame, show="*")
-        self.password_field.pack(pady=5)
-        self.show_password_var = tk.BooleanVar()
-        self.show_password_var.set(False)
-        self.show_password_toggle = ttk.Checkbutton(self.canvasItemsFrame, text="Show password", variable=self.show_password_var, command=self.toggle_password_visibility)
-        self.show_password_toggle.pack(pady=5)
+        self.passwordLabel = ttk.Label(self.canvasItemsFrame, text="Password")
+        self.passwordLabel.pack(pady=10)
+        self.passwordField = ttk.Entry(self.canvasItemsFrame, show="*")
+        self.passwordField.pack(pady=5)
+        self.showPasswordVar = tk.BooleanVar()
+        self.showPasswordVar.set(False)
+        self.showPasswordToggle = ttk.Checkbutton(self.canvasItemsFrame, text="Show password", variable=self.showPasswordVar, command=self.togglePasswordVisibility)
+        self.showPasswordToggle.pack(pady=5)
         
         # Set up the forgotten password button
-        self.forgotten_password_button = ttk.Button(self.canvasItemsFrame, text="Forgotten password?", command=self.forgotten_password)
-        self.forgotten_password_button.pack(pady=10)
+        self.forgottenPasswordButton = ttk.Button(self.canvasItemsFrame, text="Forgotten password?", command=self.forgottenPassword)
+        self.forgottenPasswordButton.pack(pady=10)
         
         # Set up the login button
-        self.login_button = ttk.Button(self.canvasItemsFrame, text="Login", command=self.login)
-        self.login_button.pack(pady=10)
+        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", command=lambda: controller.showFrame(PageOne))
+        self.loginButton.pack(pady=10)
 
+        # Set up the canvas items; title and login form
+        self.title = self.canvas.create_window(self.winfo_screenwidth()/2, (self.winfo_screenheight()/2)+100, anchor='center', window=self.titleLabel)
         self.frame = self.canvas.create_window(self.winfo_screenwidth()/2, self.winfo_screenheight()/2, anchor='center', window=self.canvasItemsFrame)
-        self.canvas.bind('<Configure>', self._resizeCanvas)
+        self.canvas.bind('<Configure>', self.resizeCanvas) # Bind the resizeCanvas function to the canvas resizing event
 
-    def _resize_image(self, event):
-        self.image = self.img_copy.resize((event.width, event.width), Image.BICUBIC)
+    def resizeImage(self, event):
+        ''' Resize the background image to fit the canvas '''
+        self.image = self.imgCopy.resize((event.width, event.width), Image.LANCZOS)
 
-        self.background_image = ImageTk.PhotoImage(self.image)
-        self.background.configure(image =  self.background_image)
+        self.backgroundImage = ImageTk.PhotoImage(self.image)
+        self.canvas.create_image(0, 0, image = self.backgroundImage, anchor='nw')
 
-    def _resizeCanvas(self, event):
+    def resizeCanvas(self, event):
+        ''' Reposition the canvas items (Title and login form) to be centered in the canvas '''
+        self.canvas.coords(self.title, event.width/2, (event.height/2)-350)
         self.canvas.coords(self.frame, event.width/2, event.height/2)
+
+        self.resizeImage(event) # Resize the background image to fit the canvas at the same time
         
-    def toggle_password_visibility(self):
-        if self.show_password_var.get():
-            self.password_field.config(show="")
+    def togglePasswordVisibility(self):
+        ''' Toggle the visibility of the password field '''
+        if self.showPasswordVar.get():
+            self.passwordField.config(show="")
         else:
-            self.password_field.config(show="*")
+            self.passwordField.config(show="*")
             
-    def forgotten_password(self):
+    def forgottenPassword(self):
         # TODO: Implement forgotten password functionality
         pass
     
@@ -139,9 +133,11 @@ class PageOne(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
-        self.loginButton = ttk.Button(self, text='Page One Moment', command=lambda: controller.show_frame(PageTwo), style='TButton')
+        self.menuBar = ui.MenuBar(self)
+
+        self.loginButton = ttk.Button(self, text='Page One Moment', command=lambda: controller.showFrame(PageTwo), style='TButton')
         self.loginButton.pack()
-        ui.create_tooltip(self.loginButton, 'Click it for suprise xoxo')
+        ui.createTooltip(self.loginButton, 'Click it for suprise')
 
         self.label = ttk.Label(self, text='RAHHHHH', style='TLabel')
         self.label.pack()
@@ -155,15 +151,13 @@ class PageTwo(ui.PageStructure):
         self.newFrame = ttk.Frame(self, style='TFrame')
         self.newFrame.pack(side='top', fill='both', expand=True)
 
-        self.loginButton = ttk.Button(self.newFrame, text='Page Two Moment', command=None, style='TButton')
+        self.loginButton = ttk.Button(self.newFrame, text='Page Two Moment', command=lambda: controller.showFrame(PageOne), style='TButton')
         self.loginButton.pack()
 
-        self.label = ttk.Label(self.newFrame, text='Hey x', style='TLabel')
+        self.label = ttk.Label(self.newFrame, text='Hey', style='TLabel')
         self.label.pack()
         self.label2 = ttk.Label(self.newFrame, text='Does this work??', style='TLabel')
         self.label2.pack()
-
-
 
 ''' Main Program '''
 #CONSTANTS

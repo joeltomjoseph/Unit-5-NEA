@@ -92,7 +92,7 @@ class LoginPage(ui.PageStructure):
         self.forgottenPasswordButton.pack(pady=10)
         
         # Set up the login button
-        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", command=lambda: controller.showFrame(PageOne))
+        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='secondary.Outline.TButton', command=lambda: controller.showFrame(PageOne))
         self.loginButton.pack(pady=10)
 
         # Set up the canvas items; title and login form
@@ -147,6 +147,8 @@ class PageOne(ui.PageStructure):
 class PageTwo(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
+
+        self.menuBar = ui.MenuBar(self)
 
         self.newFrame = ttk.Frame(self, style='TFrame')
         self.newFrame.pack(side='top', fill='both', expand=True)

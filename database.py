@@ -1,4 +1,5 @@
 import sqlite3 as sql
+import re
 
 # Establish a connection to the database
 connection = sql.connect("TestDatabase.db")
@@ -113,3 +114,63 @@ def createSetupGroupsTable(cursor):
 # createEventTable(cursor)
 # createLocationsTable(cursor)
 # createSetupGroupsTable(cursor)
+
+# Function to insert data into a table
+def insertData(cursor, tableName, data: list):
+    sql = f"INSERT INTO {tableName} VALUES ({', '.join(['?' for field in range(len(data))])})"
+    cursor.execute(sql, data)
+    connection.commit()
+
+# Function to fetch all rows from a table
+def getAllRows(cursor, tableName):
+    sql = f"SELECT * FROM {tableName}"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    return rows
+
+# Function to fetch a specific row from a table based on a condition
+def fetchRowByCondition(cursor, tableName, condition):
+    sql = f"SELECT * FROM {tableName} WHERE {condition}"
+    cursor.execute(sql)
+    row = cursor.fetchone()
+    return row
+
+# Function to check if data passed in is present
+def presenceCheck(data: list):
+    ''' Check if all fields in a list of data are present, 
+    this can also be used to check if a single value is present by passing in a single value as a list '''
+    for field in data:
+        if field == '' or field == None:
+            return False
+    return True
+
+def validateUsername(username):
+    # Validate username: At least minUsernameLength and greater than maxUsernameLength
+    minUsernameLength = 6
+    maxUsernameLength = 20
+
+    if len(username) < minUsernameLength or len(username) > maxUsernameLength:
+        print(f"Invalid username. Username has to be between {minUsernameLength} and {maxUsernameLength} characters long.")
+        return False
+    return True
+
+def validatePassword(password):
+    # Validate password: At least 9 characters, one uppercase, one lowercase, one number
+    if len(password) < 9:
+        print("Invalid password. Password must be at least 9 characters.")
+        return False
+
+    if not re.search(r'[A-Z]', password):
+        print("Invalid password. Password must contain at least one uppercase letter.")
+        return False
+
+    if not re.search(r'[a-z]', password):
+        print("Invalid password. Password must contain at least one lowercase letter.")
+        return False
+
+    if not re.search(r'\d', password):
+        print("Invalid password. Password must contain at least one digit.")
+        return False
+
+    return True
+

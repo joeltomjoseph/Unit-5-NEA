@@ -90,7 +90,7 @@ class ToolTip:
         self.tipWindow = None
 
 def createTooltip(widget: tk.Widget, text: str):
-    ''' Initialise a tooltip with text that is shown when the user hovers over widget. '''
+    ''' Initialise a tooltip with text that is shown when the user hovers over chosen widget. '''
     tool_tip = ToolTip(widget)
 
     def enter(tk_event: tk.Event):

@@ -4,6 +4,7 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 
 import ui
+import database
 
 class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -47,7 +48,11 @@ class MainApp(tk.Tk):
         self.showFrame(LoginPage)
     
     def showFrame(self, cont, *args):
-        ''' Show the frame for the given page name '''
+        ''' Show the frame for the given page name. For widget in args, Destroy all toplevel windows such as tooltips. '''
+        for widget in args:
+            if isinstance(widget, tk.Toplevel):
+                widget.destroy()
+        
         frame = self.frames[cont]
         frame.tkraise()
 
@@ -74,14 +79,16 @@ class LoginPage(ui.PageStructure):
         # Set up the username label and field
         self.usernameLabel = ttk.Label(self.canvasItemsFrame, text="Username")
         self.usernameLabel.pack(pady=10)
-        self.usernameField = ttk.Entry(self.canvasItemsFrame)
+        self.usernameField = ttk.Entry(self.canvasItemsFrame, validate='focusout', validatecommand=lambda: self.validationCallback(self.usernameField, database.validateUsername)) #lambda: controller.register(database.validateUsername), '%P'))
         self.usernameField.pack(pady=5, padx=20)
+        #ui.createTooltip(self.usernameField, 'Username has to be between 6 and 20 characters long.', onWidget=True)
         
         # Set up the password label, field, and show password toggle
         self.passwordLabel = ttk.Label(self.canvasItemsFrame, text="Password")
         self.passwordLabel.pack(pady=10)
-        self.passwordField = ttk.Entry(self.canvasItemsFrame, show="*")
+        self.passwordField = ttk.Entry(self.canvasItemsFrame, show="*", validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordField, database.validatePassword)) #lambda: (controller.register(database.validatePassword), '%P')
         self.passwordField.pack(pady=5)
+        #ui.createTooltip(self.passwordField, 'Username has to be between 6 and 20 characters long.', onWidget=False)
         self.showPasswordVar = tk.BooleanVar()
         self.showPasswordVar.set(False)
         self.showPasswordToggle = ttk.Checkbutton(self.canvasItemsFrame, text="Show password", variable=self.showPasswordVar, command=self.togglePasswordVisibility)
@@ -92,13 +99,17 @@ class LoginPage(ui.PageStructure):
         self.forgottenPasswordButton.pack(pady=10)
         
         # Set up the login button
-        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='secondary.Outline.TButton', command=lambda: controller.showFrame(PageOne))
+        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='secondary.TButton', command=lambda: controller.showFrame(PageOne))
         self.loginButton.pack(pady=10)
 
         # Set up the canvas items; title and login form
         self.title = self.canvas.create_window(self.winfo_screenwidth()/2, (self.winfo_screenheight()/2)+100, anchor='center', window=self.titleLabel)
         self.frame = self.canvas.create_window(self.winfo_screenwidth()/2, self.winfo_screenheight()/2, anchor='center', window=self.canvasItemsFrame)
         self.canvas.bind('<Configure>', self.resizeCanvas) # Bind the resizeCanvas function to the canvas resizing event
+    
+    def validationCallback(self, widget, validationRoutine):
+        return validationRoutine(widget, widget.get())
+        #return (controller.register(validationRoutine), widget, '%P')
 
     def resizeImage(self, event):
         ''' Resize the background image to fit the canvas '''
@@ -141,7 +152,7 @@ class PageOne(ui.PageStructure):
 
         self.label = ttk.Label(self, text='RAHHHHH', style='TLabel')
         self.label.pack()
-        self.label2 = ttk.Label(self, text='SUIUIIUIUIIII', style='TLabel')
+        self.label2 = ttk.Label(self, text='SUIUIIUIUIIII', style='primary.TLabel')
         self.label2.pack()
 
 class PageTwo(ui.PageStructure):

@@ -48,7 +48,7 @@ def createWidgetStyles(style):
     style.configure("Close.secondary.TButton", foreground='black', font=('TkTextFont 15 bold'), width=10)
 
     # Login Screen
-    style.configure('Items.TFrame', background='#EEEEEE', padding=(20, 20, 20, 20))
+    style.configure('Items.TFrame', padding=(20, 20, 20, 20))
 
 def createStyle():
     ''' Initialises the style and loads the theme for the entire application '''
@@ -70,7 +70,7 @@ class ToolTip:
         self.x = self.y = 0
 
     def showTooltip(self, text: str):
-        ''' Display text in a tooltip window '''
+        ''' Display text in a tooltip window based on the mouse position '''
         self.text = text
         if self.tipWindow or not self.text:
             return
@@ -84,23 +84,51 @@ class ToolTip:
                           font=TOOLTIP_FONT)
         label.pack(ipadx=1)
 
+    def showTooltipOnWidget(self, text: str):
+        ''' Display text in a tooltip window based on the widget position '''
+        self.text = text
+        if self.tipWindow or not self.text:
+            return
+        x = self.widget.winfo_rootx() + self.widget.winfo_width() - 10
+        y = self.widget.winfo_rooty() - 10
+        self.tipWindow = tk.Toplevel(self.widget)
+        self.tipWindow.wm_overrideredirect(1)
+        self.tipWindow.transient(self.widget)
+        self.tipWindow.wm_geometry(f'+{x}+{y}')
+        label = ttk.Label(self.tipWindow, text=self.text, justify='left',
+                          background='#ffffff', relief='flat', borderwidth=1,
+                          font=TOOLTIP_FONT)
+        label.pack(ipadx=1)
+
     def hideTooltip(self):
         if self.tipWindow:
             self.tipWindow.destroy()
         self.tipWindow = None
 
-def createTooltip(widget: tk.Widget, text: str):
-    ''' Initialise a tooltip with text that is shown when the user hovers over chosen widget. '''
+def createTooltip(widget: tk.Widget, text: str, onWidget: bool = False):
+    ''' Initialise a tooltip with text that is shown when the user hovers over chosen widget.
+    If onWidget is True, the tooltip will be shown on the widget itself without the need to hover over it. '''
     tool_tip = ToolTip(widget)
 
-    def enter(tk_event: tk.Event):
-        tool_tip.showTooltip(text)
+    if onWidget:
+        tool_tip.showTooltipOnWidget(text)
 
-    def leave(tk_event: tk.Event):
-        tool_tip.hideTooltip()
+        def leave(tk_event: tk.Event = None):
+            tool_tip.hideTooltip()
 
-    widget.bind('<Enter>', enter)
-    widget.bind('<Leave>', leave)
+        widget.bind('<FocusIn>', leave)
+        widget.after(8000, leave) # After 8 seconds, hide the tooltip
+        #master.bind('<ShowFrame>', leave) #Add an event for when the page is changed to hide the tooltip
+    else:
+        def enter(tk_event: tk.Event):
+            tool_tip.showTooltip(text)
+
+        def leave(tk_event: tk.Event):
+            tool_tip.hideTooltip()
+
+        widget.bind('<Enter>', enter)
+        widget.bind('<Leave>', leave)
+    
 
 class PageStructure(ttk.Frame):
     ''' Base class for all pages '''

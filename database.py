@@ -1,5 +1,6 @@
 import sqlite3 as sql
 import re
+import ui
 
 # Establish a connection to the database
 connection = sql.connect("TestDatabase.db")
@@ -144,32 +145,37 @@ def presenceCheck(data: list):
             return False
     return True
 
-def validateUsername(username):
+def validateUsername(widget, username):
     # Validate username: At least minUsernameLength and greater than maxUsernameLength
     minUsernameLength = 6
     maxUsernameLength = 20
 
     if len(username) < minUsernameLength or len(username) > maxUsernameLength:
-        print(f"Invalid username. Username has to be between {minUsernameLength} and {maxUsernameLength} characters long.")
+        #print(f"Invalid username. Username has to be between {minUsernameLength} and {maxUsernameLength} characters long.")
+        ui.createTooltip(widget, f'Username has to be between {minUsernameLength} and {maxUsernameLength} characters long.', onWidget=True)
         return False
     return True
 
-def validatePassword(password):
+def validatePassword(widget, password):
     # Validate password: At least 9 characters, one uppercase, one lowercase, one number
     if len(password) < 9:
-        print("Invalid password. Password must be at least 9 characters.")
+        #print("Invalid password. Password must be at least 9 characters.")
+        ui.createTooltip(widget, 'Password must be at least 9 characters.', onWidget=True)
         return False
 
     if not re.search(r'[A-Z]', password):
-        print("Invalid password. Password must contain at least one uppercase letter.")
+        #print("Invalid password. Password must contain at least one uppercase letter.")
+        ui.createTooltip(widget, 'Password must contain at least one uppercase letter.', onWidget=True)
         return False
 
     if not re.search(r'[a-z]', password):
-        print("Invalid password. Password must contain at least one lowercase letter.")
+        #print("Invalid password. Password must contain at least one lowercase letter.")
+        ui.createTooltip(widget, 'Password must contain at least one lowercase letter.', onWidget=True)
         return False
 
     if not re.search(r'\d', password):
-        print("Invalid password. Password must contain at least one digit.")
+        #print("Invalid password. Password must contain at least one digit.")
+        ui.createTooltip(widget, 'Password must contain at least one digit.', onWidget=True)
         return False
 
     return True

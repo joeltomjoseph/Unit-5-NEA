@@ -30,7 +30,7 @@ BOLD_CAPTION_FONT = 'TEMP - set in main.py when MainApp is initialised'
 TOOLTIP_FONT = 'TkTooltipFont 13'
 TEXT_ENTRY_FONT = 'TkTextFont 15'
 
-def createWidgetStyles(style):
+def createWidgetStyles(style: ttk.Style):
     ''' Creates the custom styles for the widgets which overwrite the base styles from the theme '''
     # Test styles for debugging
     style.configure('test.TFrame', background='red')
@@ -48,10 +48,11 @@ def createWidgetStyles(style):
     style.configure("Close.secondary.TButton", foreground='black', font=('TkTextFont 15 bold'), width=10)
 
     # Login Screen
-    style.configure('Items.TFrame', padding=(20, 20, 20, 20))
+    style.configure('Items.TFrame', width=400, padding=(20, 20, 20, 20))
 
     # Dashboard
-    style.configure('dbButton.TButton', background='#F5F5F5')
+    style.configure('dbButton.TButton', background='#F5F5F5', foreground='black', font=BODY_FONT, justify='center', wraplength=250)
+    style.configure('dbLabel.TLabel', background='#F5F5F5', foreground='black', font=BODY_FONT)
     
 
 def createStyle():
@@ -141,7 +142,7 @@ class PageStructure(ttk.Frame):
 
 class MenuBar(ttk.Frame):
     ''' Class to create the menu bar shown on many pages '''
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, controller, FAQPage, lastPage = None, **kwargs):
         super().__init__(parent, **kwargs)
 
         self.pack(side='top', fill='x')
@@ -158,5 +159,10 @@ class MenuBar(ttk.Frame):
         closeButton.pack(side="right", padx=10, pady=5)
 
         # Create FAQ/Help button
-        helpButton = ttk.Button(self, text="FAQ", command=None, style='Close.secondary.TButton')
+        helpButton = ttk.Button(self, text="FAQ", command=lambda: controller.showFrame(FAQPage), style='Close.secondary.TButton')
         helpButton.pack(side="right", padx=10, pady=5)
+
+        if lastPage:
+            # Create back button
+            backButton = ttk.Button(self, text="Back", command=lambda: controller.showFrame(lastPage), style='Close.secondary.TButton')
+            backButton.pack(side="left", padx=10, pady=5)

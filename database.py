@@ -53,9 +53,9 @@ def createPupilTable(cursor):
 def createClassesTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Classes (
+        classID INT PRIMARY KEY,
         yearGroup VARCHAR(2),
-        registrationClass VARCHAR(1),
-        PRIMARY KEY (yearGroup, registrationClass)
+        registrationClass VARCHAR(1)
     );'''
     cursor.execute(sql)
 

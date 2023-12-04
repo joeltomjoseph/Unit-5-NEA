@@ -37,7 +37,7 @@ class MainApp(tk.Tk):
 
         self.frames = {}
         # Initialise all the pages
-        for F in (LoginPage, PageOne, PageTwo):
+        for F in (LoginPage, Dashboard, PageTwo):
             frame = F(contentFrame, self)
             self.frames[F] = frame
             frame.grid(row=0, column=0, sticky='nsew')
@@ -99,7 +99,7 @@ class LoginPage(ui.PageStructure):
         self.forgottenPasswordButton.pack(pady=10)
         
         # Set up the login button
-        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='secondary.TButton', command=lambda: controller.showFrame(PageOne))
+        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='secondary.TButton', command=lambda: controller.showFrame(Dashboard))
         self.loginButton.pack(pady=10)
 
         # Set up the canvas items; title and login form
@@ -140,20 +140,43 @@ class LoginPage(ui.PageStructure):
         # TODO: Implement login functionality
         pass
 
-class PageOne(ui.PageStructure):
+class Dashboard(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
         self.menuBar = ui.MenuBar(self)
 
-        self.loginButton = ttk.Button(self, text='Page One Moment', command=lambda: controller.showFrame(PageTwo), style='TButton')
-        self.loginButton.pack()
-        ui.createTooltip(self.loginButton, 'Click it for suprise')
+        # Create a frame for upcoming event details
+        self.eventFrame = ttk.Frame(self, style='TFrame')
+        self.eventFrame.pack(side='left', fill='both', expand=True, padx=10, pady=10, ipadx=10, ipady=10, anchor='w')
 
-        self.label = ttk.Label(self, text='RAHHHHH', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self, text='SUIUIIUIUIIII', style='primary.TLabel')
-        self.label2.pack()
+        self.upcomingEventsButton = ttk.Button(self.eventFrame, text='Upcoming Events', style='TButton', command=None)
+        self.upcomingEventsButton.pack(side='top', fill='both', expand=True, padx=10, pady=10)
+
+        # Create a frame for buttons
+        self.buttonFrame = ttk.Frame(self, style='TFrame')
+        self.buttonFrame.pack(side='right', fill='both', expand=True, padx=10, pady=10, ipadx=10, ipady=10, anchor='ne')
+        self.buttonFrame.grid_columnconfigure([0,1], weight=1, uniform='column')
+        self.buttonFrame.grid_rowconfigure([0,1,2], weight=1)
+
+        # Create buttons for viewing documentation, information about members, archive, connect to soundboard, training materials, and settings
+        self.documentationButton = ttk.Button(self.buttonFrame, text='View Documentation', style='TButton', command=None)
+        self.documentationButton.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+
+        self.membersButton = ttk.Button(self.buttonFrame, text='Information about Members', style='TButton', command=None)
+        self.membersButton.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+
+        self.archiveButton = ttk.Button(self.buttonFrame, text='Archive', style='TButton', command=None)
+        self.archiveButton.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+
+        self.soundboardButton = ttk.Button(self.buttonFrame, text='Connect to Soundboard', style='TButton', command=None)
+        self.soundboardButton.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
+
+        self.trainingButton = ttk.Button(self.buttonFrame, text='Training Materials', style='TButton', command=None)
+        self.trainingButton.grid(row=2, column=0, padx=10, pady=10, sticky='nsew')
+
+        self.settingsButton = ttk.Button(self.buttonFrame, text='Settings', style='TButton', command=None)
+        self.settingsButton.grid(row=2, column=1, padx=10, pady=10, sticky='nsew')
 
 class PageTwo(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -164,7 +187,7 @@ class PageTwo(ui.PageStructure):
         self.newFrame = ttk.Frame(self, style='TFrame')
         self.newFrame.pack(side='top', fill='both', expand=True)
 
-        self.loginButton = ttk.Button(self.newFrame, text='Page Two Moment', command=lambda: controller.showFrame(PageOne), style='TButton')
+        self.loginButton = ttk.Button(self.newFrame, text='Page Two Moment', command=lambda: controller.showFrame(Dashboard), style='TButton')
         self.loginButton.pack()
 
         self.label = ttk.Label(self.newFrame, text='Hey', style='TLabel')

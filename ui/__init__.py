@@ -50,6 +50,10 @@ def createWidgetStyles(style):
     # Login Screen
     style.configure('Items.TFrame', padding=(20, 20, 20, 20))
 
+    # Dashboard
+    style.configure('dbButton.TButton', background='#F5F5F5')
+    
+
 def createStyle():
     ''' Initialises the style and loads the theme for the entire application '''
     style = ttk.Style()

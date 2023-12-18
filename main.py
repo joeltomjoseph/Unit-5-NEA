@@ -6,6 +6,7 @@ import datetime
 
 import ui
 import database
+from functions import validation #, soundBoardController
 
 class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -14,14 +15,14 @@ class MainApp(tk.Tk):
         # Setting up Starting Window
         self.title('AGS Sound and Lighting')
         self.iconphoto(True, tk.PhotoImage(file='images/ags.gif'))
-        self.geometry('1000x900+0+0')
+        self.geometry('1000x1000+250+0')
         #self.state('zoomed')
         self.minsize(1000,900)
 
         #Initialising some required fonts 
         fontCaption = font.nametofont('TkCaptionFont')
         # Setting a caption font as italic
-        fontCaption['size'], fontCaption['slant'] = 13, 'italic'
+        fontCaption['size'], fontCaption['slant'] = 15, 'italic'
         ui.ITALIC_CAPTION_FONT = font.Font(**fontCaption.actual())
         # Creating another Caption font but bold
         fontCaption['weight'], fontCaption['slant'] = 'bold', 'roman'
@@ -50,8 +51,11 @@ class MainApp(tk.Tk):
         frame.grid(row=0, column=0, sticky='nsew')
         self.showFrame(LoginPage)
     
-    def showFrame(self, cont, *args):
+    def showFrame(self, cont, resizeTo: str = None):
         ''' Show the frame for the given page name. '''
+        if resizeTo:
+            #self.state('zoomed')
+            self.geometry(resizeTo)
         frame = self.frames[cont]
         frame.tkraise()
 
@@ -67,7 +71,7 @@ class LoginPage(ui.PageStructure):
         self.titleLabel = ttk.Label(self.canvas, text="Sound and Lighting", image=self.logo, compound='left', style='Heading.TLabel')
         
         #Create frame to hold login form
-        self.canvasItemsFrame = ttk.Frame(self.canvas, style='Items.TFrame')
+        self.canvasItemsFrame = ttk.Frame(self.canvas, padding=(10,10,10,10))
 
         # Set up the background image
         self.image = Image.open("images/backdrop.png")
@@ -78,13 +82,13 @@ class LoginPage(ui.PageStructure):
         # Set up the username label and field
         self.usernameLabel = ttk.Label(self.canvasItemsFrame, text="Username")
         self.usernameLabel.pack(pady=10)
-        self.usernameField = ttk.Entry(self.canvasItemsFrame, validate='focusout', validatecommand=lambda: self.validationCallback(self.usernameField, database.validateUsername)) #lambda: controller.register(database.validateUsername), '%P'))
+        self.usernameField = ttk.Entry(self.canvasItemsFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.usernameField, validation.validateUsername))
         self.usernameField.pack(pady=5, padx=20)
         
         # Set up the password label, field, and show password toggle
         self.passwordLabel = ttk.Label(self.canvasItemsFrame, text="Password")
         self.passwordLabel.pack(pady=10)
-        self.passwordField = ttk.Entry(self.canvasItemsFrame, show="*", validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordField, database.validatePassword)) #lambda: (controller.register(database.validatePassword), '%P')
+        self.passwordField = ttk.Entry(self.canvasItemsFrame, font=ui.TEXT_ENTRY_FONT, show="*", validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordField, validation.validatePassword))
         self.passwordField.pack(pady=5)
         
         self.showPasswordVar = tk.BooleanVar()
@@ -93,12 +97,13 @@ class LoginPage(ui.PageStructure):
         self.showPasswordToggle.pack(pady=5)
         
         # Set up the forgotten password button
-        self.forgottenPasswordButton = ttk.Button(self.canvasItemsFrame, text="Forgotten password?", command=self.forgottenPassword)
+        controller.style.configure('forgot.primary.Outline.TButton', borderwidth=2, focusthickness=2, width=18)
+        self.forgottenPasswordButton = ttk.Button(self.canvasItemsFrame, text="Forgotten password?", style='forgot.primary.Outline.TButton', command=self.forgottenPassword)
         self.forgottenPasswordButton.pack(pady=10)
         
         # Set up the login button
-        controller.style.configure('Login.secondary.Outline.TButton', borderwidth=2, focusthickness=2, width=20)
-        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='Login.secondary.Outline.TButton', command=lambda: controller.showFrame(Dashboard))
+        controller.style.configure('Login.secondary.TButton', borderwidth=2, focusthickness=2, width=20)
+        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='Login.secondary.TButton', command=lambda: controller.showFrame(Dashboard, resizeTo='1920x1080+0+0'))
         self.loginButton.pack(pady=10)
 
         # Set up the canvas items; title and login form
@@ -183,14 +188,21 @@ class Dashboard(ui.PageStructure):
         self.settingsButton = ttk.Button(self.buttonFrame, text='Settings', style='dbButton.TButton', command=lambda: controller.showFrame(SettingsPage))
         self.settingsButton.grid(row=2, column=1, padx=10, pady=10, sticky='nsew')
 
-        # Create a frame for the time/date at bottom
-        self.timeFrame = ttk.Frame(self, style='TFrame')
-        # self.timeFrame.pack(side='bottom', fill='x', after=self.menuBar, anchor='s')
-        self.timeFrame.place(relx=0, rely=0.95, relwidth=1, relheight=0.05, anchor='nw')
+        # Create a frame for the time/date and other information at bottom
+        self.bottomFrame = ttk.Frame(self, style='TFrame')
+        # self.bottomFrame.pack(side='bottom', fill='x', after=self.menuBar, anchor='s')
+        self.bottomFrame.place(relx=0, rely=0.95, relwidth=1, relheight=0.05, anchor='nw')
+        
+        self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='ItalicCaption.TLabel')
+        self.userLabel.pack(side='left', expand=True)
 
-        self.timeLabel = ttk.Label(self.timeFrame, text='RAHH', style='ItalicCaption.TLabel')
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version XXX', style='ItalicCaption.TLabel')
+        self.versionLabel.pack(side='right', expand=True)
+
+        self.timeLabel = ttk.Label(self.bottomFrame, text='RAHH', style='ItalicCaption.TLabel')
         self.timeLabel.pack(side='bottom', expand=True)
-        self.time()
+
+        self.time() # Call the time function to start updating the time at the bottom of the window
 
     # time function used to update the time at bottom of window every second
     def time(self):

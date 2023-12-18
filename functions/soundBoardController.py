@@ -1,6 +1,6 @@
 import mido
 import time
-import QU24AudioRecording as ar
+from functions import soundBoardRecording as ar
 
 '''
 inport = mido.get_input_names()

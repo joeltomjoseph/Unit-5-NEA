@@ -1,6 +1,7 @@
 import tkinter as tk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
+import platform
 
 ''' Constants '''
 COLOURS = {
@@ -23,7 +24,7 @@ COLOURS = {
 }
 
 # Fonts
-BODY_FONT = 'TkTextFont 18'
+BODY_FONT = 'TkTextFont 15'
 HEADING_FONT = 'TkHeadingFont 38 bold'
 ITALIC_CAPTION_FONT = 'TEMP - set in main.py when MainApp is initialised'
 BOLD_CAPTION_FONT = 'TEMP - set in main.py when MainApp is initialised'
@@ -34,6 +35,9 @@ def createWidgetStyles(style: ttk.Style):
     ''' Creates the custom styles for the widgets which overwrite the base styles from the theme '''
     # Test styles for debugging
     style.configure('test.TFrame', background='red')
+
+    # Default - Override all widgets
+    style.configure('.', font=(BODY_FONT)) # Used to fix the size of buttons created by default as they were too small
 
     # Text
     style.configure('TLabel', font=BODY_FONT)
@@ -48,7 +52,7 @@ def createWidgetStyles(style: ttk.Style):
     style.configure("Close.secondary.TButton", foreground='black', font=('TkTextFont 15 bold'), width=10)
 
     # Login Screen
-    style.configure('Items.TFrame', width=400, padding=(20, 20, 20, 20))
+    
 
     # Dashboard
     style.configure('dbButton.TButton', background='#F5F5F5', foreground='black', font=BODY_FONT, justify='center', wraplength=250)
@@ -98,7 +102,8 @@ class ToolTip:
         y = self.widget.winfo_rooty() - 10
         self.tipWindow = tk.Toplevel(self.widget)
         self.tipWindow.wm_overrideredirect(1)
-        self.tipWindow.transient(self.widget)
+        if platform.system() == 'Darwin': # If on MacOS
+            self.tipWindow.transient(self.widget.master) # Shows the tooltip at all times so it won't be hidden behind the main window
         self.tipWindow.wm_geometry(f'+{x}+{y}')
         label = ttk.Label(self.tipWindow, text=self.text, justify='left',
                           background='#ffffff', relief='flat', borderwidth=1,

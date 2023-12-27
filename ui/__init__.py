@@ -50,14 +50,15 @@ def createWidgetStyles(style: ttk.Style):
     style.configure('mb.TFrame', background='#3D4B74')
     style.configure("mt.TLabel", font=("Arial", 16, "bold"), foreground="#ffffff", background="#3D4B74")
     style.configure("Close.secondary.TButton", foreground='black', font=('TkTextFont 15 bold'), width=10)
-
-    # Login Screen
     
-
     # Dashboard
-    style.configure('dbButton.TButton', background='#F5F5F5', foreground='black', font=BODY_FONT, justify='center', wraplength=250)
-    style.configure('dbLabel.TLabel', background='#F5F5F5', foreground='black', font=BODY_FONT)
-    
+    style.configure('db.TFrame', background='#F5F5F5')
+    style.configure('dbButton.Outline.TButton', background='#F5F5F5', foreground='black', font=BODY_FONT, justify='center', wraplength=350)
+    style.configure('dbLabel.TLabel', background='#F5F5F5', foreground='black', font=BODY_FONT, justify='center', wraplength=250)
+
+    # Documentation
+    style.configure('accordion.primary.Treeview', font=BODY_FONT, rowheight=30)
+    style.configure('accordion.primary.Treeview.Item', indicatorsize=2)
 
 def createStyle():
     ''' Initialises the style and loads the theme for the entire application '''
@@ -138,7 +139,41 @@ def createTooltip(widget: tk.Widget, text: str, onWidget: bool = False):
 
         widget.bind('<Enter>', enter)
         widget.bind('<Leave>', leave)
+
+# Adapted from https://stackoverflow.com/questions/46762061/how-to-create-multiple-label-in-button-widget-of-tkinter
+class ContentButton(ttk.Button):
+    ''' Class to create a button with a label on the top and another label in the center to show content like a table '''
+    def __init__(self, parent, controller, textvariable, command, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.textvariable = textvariable
+        self.command = command
+
+        self.configure(style='dbButton.TButton', command=self.command)
+        self.bind('<Enter>', self.enter)
+        self.bind('<Leave>', self.leave)
+
+        self.buttonFrame = ttk.Frame(self, style='db.TFrame')
+        self.buttonFrame.pack(side='top', fill='both', expand=True, pady=10, padx=10)
+        self.buttonFrame.bind('<Enter>', self.enter)
+        self.buttonFrame.bind('<ButtonRelease-1>', self.command)
+
+        self.titleLabel = ttk.Label(self.buttonFrame, text='Upcoming Events', style='dbLabel.TLabel')
+        self.titleLabel.pack(side='top', fill='x', pady=10, padx=10)
+        self.titleLabel.bind('<ButtonRelease-1>', self.command)
+
+        self.contentLabel = ttk.Label(self.buttonFrame, textvariable=self.textvariable, style='dbLabel.TLabel')
+        self.contentLabel.pack(side='top', fill='both', pady=10, padx=10)
+        self.contentLabel.bind('<ButtonRelease-1>', self.command)
+
+        self.pack(side='top', fill='both', expand=True, padx=10, pady=10)
+
+    def enter(self, event):
+        for widget in (self, self.buttonFrame, self.titleLabel, self.contentLabel):
+            widget.configure(state='active') #ERROR - This doesn't work
     
+    def leave(self, event):
+        for widget in (self, self.buttonFrame, self.titleLabel, self.contentLabel):
+            widget.configure(state='disabled') #ERROR - This doesn't work
 
 class PageStructure(ttk.Frame):
     ''' Base class for all pages '''
@@ -171,3 +206,36 @@ class MenuBar(ttk.Frame):
             # Create back button
             backButton = ttk.Button(self, text="Back", command=lambda: controller.showFrame(lastPage), style='Close.secondary.TButton')
             backButton.pack(side="left", padx=10, pady=5)
+
+class Accoridon(ttk.Treeview):
+    ''' Class to create the accordion menu, allowing the user to view the Options available '''
+    def __init__(self, parent, controller, data, **kwargs):
+        super().__init__(parent, **kwargs)
+
+        self.column('#0', stretch=True, minwidth=100)
+        self.configure(style='accordion.primary.Treeview', show='tree')
+        self.tag_configure('directory', font=BOLD_CAPTION_FONT)
+        self.tag_bind('file', '<ButtonRelease-1>', parent.onFileClick)
+        
+        for key, value in data.items():
+            if key == 'files':
+                self.insertField(value, '') # Skip inserting the field for 'files' and instead insert its children
+            else:
+                id = self.insert('', 'end', text=key, tags='directory')
+                self.insertField(value, id)
+
+        #self.bind('<<TreeviewSelect>>', self.onSelect)
+    
+    def insertField(self, data, parentID):
+        ''' Recursively create new fields inside the treeview with parent id of parentID. '''
+        if isinstance(data, list):
+            for file in data:
+                self.insert(parentID, 'end', text=file, tags='file')
+
+        else:
+            for key, value in data.items():
+                if key == 'files':
+                    self.insertField(value, parentID) # Skip inserting the field for 'files' and instead insert its children
+                else:
+                    id = self.insert(parentID, 'end', text=key, tags='directory')
+                    self.insertField(value, id)

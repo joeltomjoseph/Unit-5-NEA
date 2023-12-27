@@ -57,15 +57,6 @@ def createClassesTable(cursor):
     );'''
     cursor.execute(sql)
 
-# Function to create the 'tbl_Houses' table
-def createHouseTable(cursor):
-    sql = '''
-    CREATE TABLE IF NOT EXISTS tbl_Houses (
-        houseID INT PRIMARY KEY,
-        houseName VARCHAR(20)
-    );'''
-    cursor.execute(sql)
-
 # Function to create the 'tbl_Events' table
 def createEventTable(cursor):
     sql = '''

@@ -215,7 +215,7 @@ class Accoridon(ttk.Treeview):
         self.column('#0', stretch=True, minwidth=100)
         self.configure(style='accordion.primary.Treeview', show='tree')
         self.tag_configure('directory', font=BOLD_CAPTION_FONT)
-        self.tag_bind('file', '<ButtonRelease-1>', parent.onFileClick)
+        self.tag_bind('file', '<Double-Button-1>', self.onFileClick)
         
         for key, value in data.items():
             if key == 'files':
@@ -223,8 +223,6 @@ class Accoridon(ttk.Treeview):
             else:
                 id = self.insert('', 'end', text=key, tags='directory')
                 self.insertField(value, id)
-
-        #self.bind('<<TreeviewSelect>>', self.onSelect)
     
     def insertField(self, data, parentID):
         ''' Recursively create new fields inside the treeview with parent id of parentID. '''
@@ -239,3 +237,45 @@ class Accoridon(ttk.Treeview):
                 else:
                     id = self.insert(parentID, 'end', text=key, tags='directory')
                     self.insertField(value, id)
+    
+    def refreshFields(self, data, *event):
+        ''' Refresh the fields in the treeview '''
+        self.delete(*self.get_children())
+        
+        self.insertField(data, '')
+
+        #self.after(10000, self.refreshFields, data) # Refresh the fields after 10 seconds
+    
+    def onFileClick(self, event):
+        ''' Handles when a file is clicked - get the file path of the clicked file and display it in the pdf viewer '''
+        def getParents(event, baseIID) -> list:
+            ''' Get all parents of the clicked item in the hierarchy '''
+            parents = []
+            currentIID = baseIID
+
+            while currentIID:
+                parentIID = event.widget.parent(currentIID)
+                if parentIID:
+                    parents.append(event.widget.item(parentIID, 'text'))
+                currentIID = parentIID
+
+            return parents
+
+        itemIID = event.widget.selection()[0]
+        item = event.widget.item(itemIID, 'text')
+        
+        parents = getParents(event, itemIID)
+
+        filePath = f'{self.master.baseFilePath}/{"/".join(parent for parent in parents)}/{item}'
+        #print(filePath)
+
+        if item.endswith('.pdf') or item.endswith('.png'):
+            try:
+                self.master.pdfViewer.destroy()
+                self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None
+                self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
+
+                self.master.pdfViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=filePath)
+                self.master.pdfViewer.pack(side='top', fill='both', expand=True)
+            except Exception as e:
+                print(e)

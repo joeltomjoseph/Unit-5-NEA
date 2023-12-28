@@ -3,6 +3,7 @@ from tkinter import messagebox, font
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from tkPDFViewer2 import tkPDFViewer as tkPDF
+import threading
 import datetime
 
 import ui
@@ -242,41 +243,19 @@ class DocumentationPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
 
-        self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure('Documents/Current Working Documents'))
+        self.baseFilePath = 'Documents/Current Working Documents'
+        self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
         self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
+        self.controlsFrame = ttk.Frame(self, style='TFrame')
+        self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
+
         self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.9, anchor='nw')
+        self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
 
         self.pdfObject = tkPDF.ShowPdf()
-        self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, pdf_location='Documents/Current Working Documents/Manuals/Qu-Mixer-Getting-Started-Guide-AP10025_2-V1.9.pdf')
+        self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='')
         self.pdfViewer.pack(side='top', fill='both', expand=True)
-
-        # self.loginButton = ttk.Button(self.contentFrame, text='Documentation Moment', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        # self.loginButton.pack()
-
-        # self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        # self.label.pack()
-        # self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        # self.label2.pack()
-    
-    def onFileClick(self, event):
-        ''' Function to handle when a file is clicked '''
-        itemIID = event.widget.selection()[0]
-        parentIID = event.widget.parent(itemIID)
-
-        item = event.widget.item(itemIID, 'text')
-        parent = event.widget.item(parentIID, 'text')
-
-        print(item, parent)
-        try:
-            self.pdfViewer.destroy()
-            self.pdfObject.display_msg, self.pdfObject.frame, self.pdfObject.text = None, None, None
-
-            self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, pdf_location='Documents/Current Working Documents/Manuals/lightingboardManual.pdf')
-            self.pdfViewer.pack(side='top', fill='both', expand=True)
-        except Exception as e:
-            print(e)
 
 class MemberInformationPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -299,18 +278,21 @@ class ArchivePage(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
-        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
+        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
+
+        self.baseFilePath = 'Documents/Archive'
+        self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
+        self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
+
+        self.controlsFrame = ttk.Frame(self, style='TFrame')
+        self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.pack(side='top', fill='both', expand=True)
+        self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
 
-        self.loginButton = ttk.Button(self.contentFrame, text='Archive Moment', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        self.loginButton.pack()
-
-        self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        self.label2.pack()
+        self.pdfObject = tkPDF.ShowPdf()
+        self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='Documents/Archive/Manuals/soundboardManual.pdf')
+        self.pdfViewer.pack(side='top', fill='both', expand=True)
 
 class ConnectToSoundboardPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -333,18 +315,21 @@ class TrainingMaterialsPage(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
-        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
+        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
+
+        self.baseFilePath = 'Documents/Training Materials'
+        self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
+        self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
+
+        self.controlsFrame = ttk.Frame(self, style='TFrame')
+        self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.pack(side='top', fill='both', expand=True)
+        self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
 
-        self.loginButton = ttk.Button(self.contentFrame, text='Training materials bro', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        self.loginButton.pack()
-
-        self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        self.label2.pack()
+        self.pdfObject = tkPDF.ShowPdf()
+        self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='')
+        self.pdfViewer.pack(side='top', fill='both', expand=True)
 
 class SettingsPage(ui.PageStructure):
     def __init__(self, parent, controller):

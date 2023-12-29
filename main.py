@@ -3,7 +3,6 @@ from tkinter import messagebox, font
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from tkPDFViewer2 import tkPDFViewer as tkPDF
-import threading
 import datetime
 
 import ui
@@ -226,16 +225,7 @@ class UpcomingEventsPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
 
-        self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.pack(side='top', fill='both', expand=True)
-
-        self.loginButton = ttk.Button(self.contentFrame, text='Upcoming Events Moment', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        self.loginButton.pack()
-
-        self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        self.label2.pack()
+        self.table = ui.TableView(self, controller, rowData=database.getAllRows(database.cursor, 'tbl_Events'), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
 
 class DocumentationPage(ui.PageStructure):
     def __init__(self, parent, controller):

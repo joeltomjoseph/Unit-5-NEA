@@ -1,7 +1,10 @@
 import tkinter as tk
 import ttkbootstrap as ttk
+from ttkbootstrap.tableview import Tableview
 from PIL import Image, ImageTk
+from tkVideoPlayer import TkinterVideo
 import platform
+import datetime
 
 ''' Constants '''
 COLOURS = {
@@ -50,6 +53,14 @@ def createWidgetStyles(style: ttk.Style):
     style.configure('mb.TFrame', background='#3D4B74')
     style.configure("mt.TLabel", font=("Arial", 16, "bold"), foreground="#ffffff", background="#3D4B74")
     style.configure("Close.secondary.TButton", foreground='black', font=('TkTextFont 15 bold'), width=10)
+
+    # Video player
+    style.configure('videoplayer.TFrame', background='#f5f5f5')
+    style.configure('play.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=10)
+    style.configure('skip.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=5)
+
+    # Tableview
+    style.configure('t.primary.Treeview', font=BODY_FONT, rowheight=30)
     
     # Dashboard
     style.configure('db.TFrame', background='#F5F5F5')
@@ -207,6 +218,17 @@ class MenuBar(ttk.Frame):
             backButton = ttk.Button(self, text="Back", command=lambda: controller.showFrame(lastPage), style='Close.secondary.TButton')
             backButton.pack(side="left", padx=10, pady=5)
 
+class TableView(ttk.Frame):
+    def __init__(self, parent, controller, rowData, columnData, **kwargs):
+        super().__init__(parent, **kwargs)
+
+        self.pack(side='top', fill='both', expand=True)
+
+        self.table = Tableview(self, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
+        self.table.configure(style='t.primary.Treeview')
+        self.table.pack(side='top', fill='both', expand=True)
+        
+
 class Accoridon(ttk.Treeview):
     ''' Class to create the accordion menu, allowing the user to view the Options available '''
     def __init__(self, parent, controller, data, **kwargs):
@@ -255,8 +277,9 @@ class Accoridon(ttk.Treeview):
 
             while currentIID:
                 parentIID = event.widget.parent(currentIID)
-                if parentIID:
+                if parentIID and event.widget.item(parentIID, 'text') not in parents: # if parentIID isnt '' and the parent isn't already in the list due to base filepath
                     parents.append(event.widget.item(parentIID, 'text'))
+                    #print(parents[-1])
                 currentIID = parentIID
 
             return parents
@@ -264,7 +287,7 @@ class Accoridon(ttk.Treeview):
         itemIID = event.widget.selection()[0]
         item = event.widget.item(itemIID, 'text')
         
-        parents = getParents(event, itemIID)
+        parents = getParents(event, itemIID)[::-1]
 
         filePath = f'{self.master.baseFilePath}/{"/".join(parent for parent in parents)}/{item}'
         #print(filePath)
@@ -279,3 +302,105 @@ class Accoridon(ttk.Treeview):
                 self.master.pdfViewer.pack(side='top', fill='both', expand=True)
             except Exception as e:
                 print(e)
+
+        if item.endswith('.mp4') or item.endswith('.mov'):
+            try:
+                self.master.pdfViewer.destroy()
+                self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None
+                self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
+
+                self.master.pdfViewer = videoPlayer(self.master.contentFrame, self.master, filePath)
+                self.master.pdfViewer.pack(side='top', fill='both', expand=True)
+                self.master.pdfViewer.load_video(filePath)
+            except Exception as e:
+                print(e)
+
+        if item.endswith('.docx'):
+            try:
+                pass
+            except Exception as e:
+                print(e)
+
+# Adapted from https://github.com/PaulleDemon/tkVideoPlayer/blob/master/examples/sample_player.py
+class videoPlayer(ttk.Frame):
+    ''' Class to create the video player along with its UI '''
+    def __init__(self, parent, controller, videoPath, **kwargs):
+        super().__init__(parent, **kwargs)
+
+        self.pack(side='top', fill='both', expand=True)
+
+        self.configure(style='videoplayer.TFrame')
+
+        self.videoPlayer = TkinterVideo(self, videoPath, keep_aspect=True, background='#f5f5f5')
+        self.videoPlayer.pack(side='top', fill='both', expand=True)
+
+        self.play_pause_btn = ttk.Button(self, style='play.secondary.TButton', text="Play", command=self.play_pause)
+        self.play_pause_btn.pack()
+
+        self.skip_plus_5sec = ttk.Button(self, style='skip.secondary.TButton', text="-5", command=lambda: self.skip(-5))
+        self.skip_plus_5sec.pack(side="left")
+
+        self.start_time = ttk.Label(self, text=str(datetime.timedelta(seconds=0)))
+        self.start_time.pack(side="left")
+
+        self.progress_value = tk.DoubleVar(self)
+
+        self.progress_slider = ttk.Scale(self, variable=self.progress_value, from_=0, to=0, orient="horizontal", command=self.seek)
+        # progress_slider.bind("<ButtonRelease-1>", seek)
+        self.progress_slider.pack(side="left", fill="x", expand=True)
+
+        self.end_time = ttk.Label(self, text=str(datetime.timedelta(seconds=0)))
+        self.end_time.pack(side="left")
+
+        self.videoPlayer.bind("<<Duration>>", self.update_duration)
+        self.videoPlayer.bind("<<SecondChanged>>", self.update_scale)
+        self.videoPlayer.bind("<<Ended>>", self.video_ended )
+
+        self.skip_plus_5sec = ttk.Button(self, style='skip.secondary.TButton', text="+5", command=lambda: self.skip(5))
+        self.skip_plus_5sec.pack(side="left")
+
+    def update_duration(self, event):
+        """ updates the duration after finding the duration """
+        duration = self.videoPlayer.video_info()["duration"]
+        self.end_time["text"] = str(datetime.timedelta(seconds=int(duration)))
+        self.progress_slider["to"] = duration
+
+    def update_scale(self, event):
+        """ updates the scale value """
+        currentTime = self.videoPlayer.current_duration()
+        self.progress_value.set(self.videoPlayer.current_duration())
+        self.start_time["text"] = str(datetime.timedelta(seconds=int(currentTime)))
+
+    def load_video(self, filePath):
+        """ loads the video """
+        if filePath:
+            self.videoPlayer.load(filePath)
+
+            self.progress_slider.config(to=0, from_=0)
+            self.play_pause_btn["text"] = "Play"
+            self.progress_value.set(0)
+
+    def seek(self, value):
+        """ used to seek a specific timeframe """
+        self.videoPlayer.seek(int(float(value)))
+
+    def skip(self, value: int):
+        """ skip seconds """
+        self.videoPlayer.seek(int(self.progress_slider.get())+value)
+        self.progress_value.set(self.progress_slider.get() + value)
+
+    def play_pause(self):
+        """ pauses and plays """
+        if self.videoPlayer.is_paused():
+            self.videoPlayer.play()
+            self.play_pause_btn["text"] = "Pause"
+
+        else:
+            self.videoPlayer.pause()
+            self.play_pause_btn["text"] = "Play"
+
+    def video_ended(self, event):
+        """ handle video ended """
+        self.progress_slider.set(self.progress_slider["to"])
+        self.play_pause_btn["text"] = "Play"
+        self.progress_slider.set(0)

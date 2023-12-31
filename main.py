@@ -4,6 +4,7 @@ import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from tkPDFViewer2 import tkPDFViewer as tkPDF
 import datetime
+import sqlite3 as sql
 
 import ui
 import database
@@ -162,7 +163,7 @@ class Dashboard(ui.PageStructure):
         self.eventFrame.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.85, anchor='nw')
         
         # Create buttons for viewing upcoming events and adding new events
-        self.upcomingEventsTextVar = ttk.StringVar(value=f'Upcoming Events\n\n\n{database.getAllRows(database.cursor, "tbl_Events")[0]}')
+        self.upcomingEventsTextVar = ttk.StringVar(value=f'Upcoming Events\n\n\n{database.getLatestEventsDetails(cursor)}')
         # self.upcomingEventsButton = ui.ContentButton(self.eventFrame, controller, self.upcomingEventsTexself.accordionar, lambda: controller.showFrame(UpcomingEventsPage))
         self.upcomingEventsButton = ttk.Button(self.eventFrame, textvariable=self.upcomingEventsTextVar, style='dbButton.Outline.TButton', command=lambda: controller.showFrame(UpcomingEventsPage))
         self.upcomingEventsButton.pack(side='top', fill='both', expand=True, padx=10, pady=10)
@@ -225,7 +226,7 @@ class UpcomingEventsPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
 
-        self.table = ui.TableView(self, controller, rowData=database.getAllRows(database.cursor, 'tbl_Events'), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
+        self.table = ui.TableView(self, controller, rowData=database.getAllEventsDetails(cursor), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
 
 class DocumentationPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -355,6 +356,8 @@ class FAQPage(ui.PageStructure):
 
 ''' Main Program '''
 #CONSTANTS
+connection = sql.connect("TestDatabase.db") # Establish a connection to the database
+cursor = connection.cursor() # Create a cursor object to execute SQL queries
 
 app = MainApp()
 app.mainloop()

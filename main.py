@@ -165,7 +165,7 @@ class Dashboard(ui.PageStructure):
         # Create buttons for viewing upcoming events and adding new events
         self.upcomingEventsTextVar = ttk.StringVar(value=f'Upcoming Events\n\n\n{database.getLatestEventsDetails(cursor)}')
         # self.upcomingEventsButton = ui.ContentButton(self.eventFrame, controller, self.upcomingEventsTexself.accordionar, lambda: controller.showFrame(UpcomingEventsPage))
-        self.upcomingEventsButton = ttk.Button(self.eventFrame, textvariable=self.upcomingEventsTextVar, style='dbButton.Outline.TButton', command=lambda: controller.showFrame(UpcomingEventsPage))
+        self.upcomingEventsButton = ttk.Button(self.eventFrame, textvariable=self.upcomingEventsTextVar, style='UE.dbButton.Outline.TButton', command=lambda: controller.showFrame(UpcomingEventsPage))
         self.upcomingEventsButton.pack(side='top', fill='both', expand=True, padx=10, pady=10)
         # self.upcomingEventsLabel = ttk.Label(self.upcomingEventsButton, text='SOURCED FROM DATABASE', style='dbLabel.TLabel')
         # self.upcomingEventsLabel.pack(side='bottom', padx=10, pady=10)
@@ -241,12 +241,24 @@ class DocumentationPage(ui.PageStructure):
         self.controlsFrame = ttk.Frame(self, style='TFrame')
         self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
 
+        self.contentName = ttk.Label(self.controlsFrame, text='Click a File to View', style='file.TLabel')
+        self.contentName.pack(side='left', padx=10, pady=20)
+
+        self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
+        self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.deleteButton = ttk.Button(self.controlsFrame, text='Delete', image=controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=None)
+        self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.saveButton = ttk.Button(self.controlsFrame, text='Save', image=controller.style.images['save'], compound='left', style='action.secondary.TButton', command=None)
+        self.saveButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.editButton = ttk.Button(self.controlsFrame, text='Edit', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
+        self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
 
-        self.pdfObject = tkPDF.ShowPdf()
-        self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='')
-        self.pdfViewer.pack(side='top', fill='both', expand=True)
+        self.pdfObject = tkPDF.ShowPdf() # Create a pdf object
+        self.contentViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='') # and set the default content to be a pdf, this will be changed when a file is selected
+        self.contentViewer.pack(side='top', fill='both', expand=True)
 
 class MemberInformationPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -278,12 +290,24 @@ class ArchivePage(ui.PageStructure):
         self.controlsFrame = ttk.Frame(self, style='TFrame')
         self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
 
+        self.contentName = ttk.Label(self.controlsFrame, text='Click a File to View', style='file.TLabel')
+        self.contentName.pack(side='left', padx=10, pady=20)
+
+        self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
+        self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.deleteButton = ttk.Button(self.controlsFrame, text='Delete', image=controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=None)
+        self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.saveButton = ttk.Button(self.controlsFrame, text='Save', image=controller.style.images['save'], compound='left', style='action.secondary.TButton', command=None)
+        self.saveButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.editButton = ttk.Button(self.controlsFrame, text='Edit', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
+        self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
 
         self.pdfObject = tkPDF.ShowPdf()
-        self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='Documents/Archive/Manuals/soundboardManual.pdf')
-        self.pdfViewer.pack(side='top', fill='both', expand=True)
+        self.contentViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='Documents/Archive/Manuals/soundboardManual.pdf')
+        self.contentViewer.pack(side='top', fill='both', expand=True)
 
 class ConnectToSoundboardPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -315,12 +339,24 @@ class TrainingMaterialsPage(ui.PageStructure):
         self.controlsFrame = ttk.Frame(self, style='TFrame')
         self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
 
+        self.contentName = ttk.Label(self.controlsFrame, text='Click a File to View', style='file.TLabel')
+        self.contentName.pack(side='left', padx=10, pady=20)
+
+        self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
+        self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.deleteButton = ttk.Button(self.controlsFrame, text='Delete', image=controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=None)
+        self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.saveButton = ttk.Button(self.controlsFrame, text='Save', image=controller.style.images['save'], compound='left', style='action.secondary.TButton', command=None)
+        self.saveButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.editButton = ttk.Button(self.controlsFrame, text='Edit', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
+        self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
 
         self.pdfObject = tkPDF.ShowPdf()
-        self.pdfViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='')
-        self.pdfViewer.pack(side='top', fill='both', expand=True)
+        self.contentViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='')
+        self.contentViewer.pack(side='top', fill='both', expand=True)
 
 class SettingsPage(ui.PageStructure):
     def __init__(self, parent, controller):

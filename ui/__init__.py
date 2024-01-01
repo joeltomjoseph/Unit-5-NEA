@@ -4,6 +4,7 @@ from ttkbootstrap.tableview import Tableview
 from PIL import Image, ImageTk
 from tkVideoPlayer import TkinterVideo
 import platform
+from pathlib import Path
 import datetime
 
 ''' Constants '''
@@ -65,11 +66,22 @@ def createWidgetStyles(style: ttk.Style):
     # Dashboard
     style.configure('db.TFrame', background='#F5F5F5')
     style.configure('dbButton.Outline.TButton', background='#F5F5F5', foreground='black', font=BODY_FONT, justify='center', wraplength=350)
+    style.configure('UE.dbButton.Outline.TButton', font='TkTextFont 18')
     style.configure('dbLabel.TLabel', background='#F5F5F5', foreground='black', font=BODY_FONT, justify='center', wraplength=250)
 
     # Documentation
     style.configure('accordion.primary.Treeview', font=BODY_FONT, rowheight=30)
     style.configure('accordion.primary.Treeview.Item', indicatorsize=2)
+    style.configure('file.TLabel', foreground='black', font=('TkTextFont 18 bold'))
+    style.configure('action.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=10)
+
+def createImages():
+    ''' Creates a dictionary of all (excluding a few) images created as PhotoImages in the images folder '''
+    images = {}
+    for file in Path('./images').iterdir():
+        if file.stem != '.DS_Store' and file.stem not in ['ags', 'backdrop', 'backdropHQ']: # Ignore the .DS_Store file and the images in the list
+            images[file.stem] = tk.PhotoImage(name=file.stem, file=file)
+    return images
 
 def createStyle():
     ''' Initialises the style and loads the theme for the entire application '''
@@ -77,6 +89,7 @@ def createStyle():
     ttk.Style.load_user_themes(style, 'agsStyle.json')
     style.theme_use('ags')
     createWidgetStyles(style)
+    style.images = createImages()
     return style
 
 #Tooltip class and functions adapted from
@@ -206,16 +219,16 @@ class MenuBar(ttk.Frame):
         self.titleLabel.pack(side="left", padx=10, pady=5)
 
         # Create close button
-        closeButton = ttk.Button(self, text="Close", command=self.quit, style='Close.secondary.TButton')
+        closeButton = ttk.Button(self, text="Close", image=controller.style.images['logout'], compound='left', command=self.quit, style='Close.secondary.TButton')
         closeButton.pack(side="right", padx=10, pady=5)
 
         # Create FAQ/Help button
-        helpButton = ttk.Button(self, text="FAQ", command=lambda: controller.showFrame(FAQPage), style='Close.secondary.TButton')
+        helpButton = ttk.Button(self, text="FAQ", image=controller.style.images['help'], compound='left', command=lambda: controller.showFrame(FAQPage), style='Close.secondary.TButton')
         helpButton.pack(side="right", padx=10, pady=5)
 
         if lastPage:
             # Create back button
-            backButton = ttk.Button(self, text="Back", command=lambda: controller.showFrame(lastPage), style='Close.secondary.TButton')
+            backButton = ttk.Button(self, text="Back", image=controller.style.images['back'], compound='left', command=lambda: controller.showFrame(lastPage), style='Close.secondary.TButton')
             backButton.pack(side="left", padx=10, pady=5)
 
 class TableView(ttk.Frame):
@@ -294,24 +307,26 @@ class Accoridon(ttk.Treeview):
 
         if item.endswith('.pdf') or item.endswith('.png'):
             try:
-                self.master.pdfViewer.destroy()
+                self.master.contentViewer.destroy()
                 self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None
                 self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
 
-                self.master.pdfViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=filePath)
-                self.master.pdfViewer.pack(side='top', fill='both', expand=True)
+                self.master.contentViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=filePath)
+                self.master.contentViewer.pack(side='top', fill='both', expand=True)
+                self.master.contentName.configure(text=item)
             except Exception as e:
                 print(e)
 
         if item.endswith('.mp4') or item.endswith('.mov'):
             try:
-                self.master.pdfViewer.destroy()
+                self.master.contentViewer.destroy()
                 self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None
                 self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
 
-                self.master.pdfViewer = videoPlayer(self.master.contentFrame, self.master, filePath)
-                self.master.pdfViewer.pack(side='top', fill='both', expand=True)
-                self.master.pdfViewer.load_video(filePath)
+                self.master.contentViewer = videoPlayer(self.master.contentFrame, self.master, filePath)
+                self.master.contentViewer.pack(side='top', fill='both', expand=True)
+                self.master.contentViewer.load_video(filePath)
+                self.master.contentName.configure(text=item)
             except Exception as e:
                 print(e)
 

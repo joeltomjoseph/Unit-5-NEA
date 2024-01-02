@@ -1,10 +1,10 @@
 on: 
   workflow_dispatch:
   
-  push:
-    branches:
-    - main
-    - windows
+  #push:
+  #  branches:
+  #  - main
+  #  - windows
 
 jobs:
   pyinstaller-build:

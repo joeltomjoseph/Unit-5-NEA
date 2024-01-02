@@ -7,8 +7,7 @@ import datetime
 import sqlite3 as sql
 
 import ui
-import database
-from functions import generalFunctions, validation #, soundBoardController
+from functions import generalFunctions, validation, database #, soundBoardController
 
 class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -16,7 +15,7 @@ class MainApp(tk.Tk):
 
         # Setting up Starting Window
         self.title('AGS Sound and Lighting')
-        self.iconphoto(True, tk.PhotoImage(file='images/ags.gif'))
+        self.iconphoto(True, tk.PhotoImage(file=generalFunctions.resourcePath('Contents/images/ags.gif')))
         self.geometry('1000x1000+250+0')
         #self.state('zoomed')
         self.minsize(1000,900)
@@ -59,7 +58,7 @@ class MainApp(tk.Tk):
         self.showFrame(Dashboard, resizeTo='1920x1080+0+0')
     
     def showFrame(self, cont, resizeTo: str = None):
-        ''' Show the frame for the given page name. '''
+        ''' Show the frame for the given page name. If resizeTo is given, resize the window to the given dimensions. '''
         if resizeTo:
             #self.state('zoomed')
             self.geometry(resizeTo)
@@ -74,14 +73,14 @@ class LoginPage(ui.PageStructure):
         self.canvas.pack(side='top', fill="both", expand=True)
         
         # Set up the title label
-        self.logo = ImageTk.PhotoImage(Image.open("images/ags.png").resize((100, 100), Image.LANCZOS))
+        self.logo = ImageTk.PhotoImage(Image.open(generalFunctions.resourcePath("Contents/images/ags.png")).resize((100, 100), Image.LANCZOS))
         self.titleLabel = ttk.Label(self.canvas, text="Sound and Lighting", image=self.logo, compound='left', style='Heading.TLabel')
         
         #Create frame to hold login form
         self.canvasItemsFrame = ttk.Frame(self.canvas, padding=(10,10,10,10))
 
         # Set up the background image
-        self.image = Image.open("images/backdrop.png")
+        self.image = Image.open(generalFunctions.resourcePath("Contents/images/backdrop.png"))
         self.imgCopy= self.image.copy()
         self.backgroundImage = ImageTk.PhotoImage(self.image)
         self.background = self.canvas.create_image(0, 0, image=self.backgroundImage, anchor='nw')
@@ -234,7 +233,7 @@ class DocumentationPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
 
-        self.baseFilePath = 'Documents/Current Working Documents'
+        self.baseFilePath = generalFunctions.resourcePath('Contents/Documents/Current Working Documents')
         self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
         self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
@@ -283,7 +282,7 @@ class ArchivePage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
 
-        self.baseFilePath = 'Documents/Archive'
+        self.baseFilePath = generalFunctions.resourcePath('Contents/Documents/Archive')
         self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
         self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
@@ -306,7 +305,7 @@ class ArchivePage(ui.PageStructure):
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
 
         self.pdfObject = tkPDF.ShowPdf()
-        self.contentViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='Documents/Archive/Manuals/soundboardManual.pdf')
+        self.contentViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location=generalFunctions.resourcePath('Contents/Documents/Archive/Manuals/soundboardManual.pdf'))
         self.contentViewer.pack(side='top', fill='both', expand=True)
 
 class ConnectToSoundboardPage(ui.PageStructure):
@@ -332,7 +331,7 @@ class TrainingMaterialsPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
 
-        self.baseFilePath = 'Documents/Training Materials'
+        self.baseFilePath = generalFunctions.resourcePath('Contents/Documents/Training Materials')
         self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
         self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
@@ -392,7 +391,7 @@ class FAQPage(ui.PageStructure):
 
 ''' Main Program '''
 #CONSTANTS
-connection = sql.connect("TestDatabase.db") # Establish a connection to the database
+connection = sql.connect(generalFunctions.resourcePath("Contents/TestDatabase.db"))  # Establish a connection to the database
 cursor = connection.cursor() # Create a cursor object to execute SQL queries
 
 app = MainApp()

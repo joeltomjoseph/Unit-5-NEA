@@ -7,6 +7,8 @@ import platform
 from pathlib import Path
 import datetime
 
+from functions import generalFunctions
+
 ''' Constants '''
 COLOURS = {
     "primary": "#3d4b74",
@@ -76,17 +78,17 @@ def createWidgetStyles(style: ttk.Style):
     style.configure('action.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=10)
 
 def createImages():
-    ''' Creates a dictionary of all (excluding a few) images created as PhotoImages in the images folder '''
+    ''' Creates a dictionary of all (excluding a few) images created as PhotoImages in the images folder. These Photoimages can be reused when needed. '''
     images = {}
-    for file in Path('./images').iterdir():
+    for file in Path(generalFunctions.resourcePath('./Contents/images')).iterdir():
         if file.stem != '.DS_Store' and file.stem not in ['ags', 'backdrop', 'backdropHQ']: # Ignore the .DS_Store file and the images in the list
-            images[file.stem] = tk.PhotoImage(name=file.stem, file=file)
+            images[file.stem] = tk.PhotoImage(name=file.stem, file=generalFunctions.resourcePath(file))
     return images
 
 def createStyle():
     ''' Initialises the style and loads the theme for the entire application '''
     style = ttk.Style()
-    ttk.Style.load_user_themes(style, 'agsStyle.json')
+    ttk.Style.load_user_themes(style, generalFunctions.resourcePath('Contents/agsStyle.json'))
     style.theme_use('ags')
     createWidgetStyles(style)
     style.images = createImages()
@@ -214,7 +216,7 @@ class MenuBar(ttk.Frame):
         self.configure(style='mb.TFrame')
         
         # Create title label
-        self.logo = ImageTk.PhotoImage(Image.open("images/ags.png").resize((50, 50), Image.LANCZOS))
+        self.logo = ImageTk.PhotoImage(Image.open(generalFunctions.resourcePath("Contents/images/ags.png")).resize((50, 50), Image.LANCZOS))
         self.titleLabel = ttk.Label(self, text="Sound and Lighting", image=self.logo, compound='left', style='mt.TLabel')
         self.titleLabel.pack(side="left", padx=10, pady=5)
 
@@ -302,7 +304,7 @@ class Accoridon(ttk.Treeview):
         
         parents = getParents(event, itemIID)[::-1]
 
-        filePath = f'{self.master.baseFilePath}/{"/".join(parent for parent in parents)}/{item}'
+        filePath = generalFunctions.resourcePath(f'{self.master.baseFilePath}/{"/".join(parent for parent in parents)}/{item}')
         #print(filePath)
 
         if item.endswith('.pdf') or item.endswith('.png'):

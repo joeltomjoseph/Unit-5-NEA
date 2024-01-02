@@ -1,4 +1,5 @@
 import os
+import sys
 
 # Adapted from https://stackoverflow.com/questions/17576366/print-out-the-whole-directory-tree
 def getDirectoryStructure(rootDir) -> dict:
@@ -26,4 +27,11 @@ def getDirectoryStructure(rootDir) -> dict:
 
     return items
 
-#print(getDirectoryStructure('Documents/Current Working Documents'))
+def resourcePath(relativePath):
+    ''' Replace the relative path with the absolute path to the resource. This allows files to be accessed when the program is compiled. '''
+    try:
+        basePath = sys._MEIPASS
+    except Exception:
+        basePath = os.path.abspath(".")
+
+    return os.path.join(basePath, relativePath)

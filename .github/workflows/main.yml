@@ -1,0 +1,26 @@
+on: 
+  workflow_dispatch:
+  
+  push:
+    #branches:
+    #- main
+    #- windows
+
+jobs:
+  pyinstaller-build:
+    runs-on: [windows-latest]
+    steps:
+      - name: Create Executable
+        uses: sayyid5416/pyinstaller@v1
+        with:
+          python_ver: '3.10.6'
+          spec: 'Sound and Lighting Win.spec'
+          requirements: 'requirements.txt'
+          upload_exe_with_name: 'Sound and Lighting'
+          options: ''
+
+      - run: echo hello > dist\Sound and Lighting\Sound and Lighting.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 'Sound and Lighting Build Windows'
+          path: dist\Sound and Lighting\Sound and Lighting.exe

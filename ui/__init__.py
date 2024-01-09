@@ -1,5 +1,7 @@
 import tkinter as tk
+from typing import Any
 import ttkbootstrap as ttk
+from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 from PIL import Image, ImageTk
 from tkVideoPlayer import TkinterVideo
@@ -7,7 +9,7 @@ import platform
 from pathlib import Path
 import datetime
 
-from functions import generalFunctions
+from functions import generalFunctions, database
 
 ''' Constants '''
 COLOURS = {
@@ -233,16 +235,148 @@ class MenuBar(ttk.Frame):
             backButton = ttk.Button(self, text="Back", image=controller.style.images['back'], compound='left', command=lambda: controller.showFrame(lastPage), style='Close.secondary.TButton')
             backButton.pack(side="left", padx=10, pady=5)
 
+class updatedTableview(Tableview):
+    ''' Overrides the base Tableview class to allow for customisation of the tableview.
+    This changes the _build_search_frame function to include more controls such as an Add and Edit button. '''
+    def __init__(self, master=None, controller=None, *args, **kwargs):
+            self.controller = controller
+            super().__init__(master, *args, **kwargs)
+    
+    def _build_search_frame(self):
+        """Build the search frame containing the search widgets. This
+        frame is only created if `searchable=True` when creating the
+        widget.
+        """
+        frame = ttk.Frame(self, padding=5)
+        frame.pack(fill='x', side='top')
+        ttk.Label(frame, text="Search").pack(side='left', padx=5)
+        searchterm = ttk.Entry(frame, textvariable=self._searchcriteria)
+        searchterm.pack(fill='x', side='left', expand=True)
+        searchterm.bind("<Return>", self._search_table_data)
+        searchterm.bind("<KP_Enter>", self._search_table_data)
+
+        self.deleteButton = ttk.Button(frame, text='Delete', image=self.controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=self.master.deleteField)
+        self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.addButton = ttk.Button(frame, text='Add', image=self.controller.style.images['add'], compound='left', style='action.secondary.TButton', command=self.master.addField)
+        self.addButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.editButton = ttk.Button(frame, text='Edit', image=self.controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=self.master.editField)
+        self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+
+        ttk.Button(frame, text="⎌", command=self.reset_table, style="symbol.Link.TButton").pack(side='right')
+
 class TableView(ttk.Frame):
-    def __init__(self, parent, controller, rowData, columnData, **kwargs):
+    ''' Class to create the tableview, allowing the user to view the data in a table format. '''
+    def __init__(self, parent, controller, connection, cursor, rowData, columnData, **kwargs):
         super().__init__(parent, **kwargs)
+        self.connection = connection
+        self.cursor = cursor
+        self.controller = controller
 
         self.pack(side='top', fill='both', expand=True)
 
-        self.table = Tableview(self, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
+        self.table = updatedTableview(self, self.controller, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
         self.table.configure(style='t.primary.Treeview')
         self.table.pack(side='top', fill='both', expand=True)
+    
+    def deleteField(self):
+        ''' Handles when the delete button is clicked - get the id of the row that is selected and delete it from the database. '''
+        row = self.table.view.focus()
+    
+        if row:
+            if Messagebox.show_question('Are you sure you want to delete this event?', 'Delete Event') == 'Yes':
+                data = self.table.view.item(row, 'values')
+                # print(data)
+                database.deleteEventDataWithID(self.connection, self.cursor, data[0])
+
+                self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
         
+    def addField(self):
+        ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
+
+        self.eventForm = GenericForm(self, self.controller, 'Add an Event/Assembly', '600x700')
+
+        self.title = ttk.Label(self.eventForm.titleFrame, text='Add an Event/Assembly', style='BoldCaption.TLabel')
+        self.title.pack()
+
+        self.name = ttk.Label(self.eventForm.formFrame, text="Name")
+        self.name.pack()
+        eventNameEntry = ttk.Entry(self.eventForm.formFrame)
+        eventNameEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Date").pack()
+        eventDateEntry = ttk.DateEntry(self.eventForm.formFrame, dateformat=r'%Y-%m-%d')
+        eventDateEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Time (hh:mm)").pack()
+        eventTimeEntry = ttk.Entry(self.eventForm.formFrame)
+        eventTimeEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Duration (hh:mm)").pack()
+        eventDurationEntry = ttk.Entry(self.eventForm.formFrame)
+        eventDurationEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Requested By").pack()
+        eventRequestedByEntry = ttk.Combobox(self.eventForm.formFrame)
+        eventRequestedByEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Location").pack()
+        eventLocationEntry = ttk.Combobox(self.eventForm.formFrame)
+        eventLocationEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Requirements").pack()
+        eventRequirementsEntry = ttk.Entry(self.eventForm.formFrame)
+        eventRequirementsEntry.pack()
+
+        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='action.secondary.TButton', command=self.submit)
+        self.submitButton.pack(side='left', padx=10, pady=10)
+
+    def submit(self):
+        data = self.eventForm.getData(self.eventForm.formFrame)
+        # print(data)
+        Messagebox.show_info('Event Added Successfully', 'Success')
+        
+        database.insertDataIntoEventsTable(self.connection, self.cursor, data)
+
+        self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
+
+    def editField(self):
+        ''' Handles when the edit button is clicked - open a new window to edit the details of the selected row and commit the changes to the database. '''
+        row = self.table.view.focus()
+        if row:
+            pass
+
+class GenericForm(tk.Toplevel):
+    def __init__(self, parent, controller, title, size, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.controller = controller
+        self.title(title)
+        self.geometry(size)
+        self.iconphoto(True, tk.PhotoImage(file=generalFunctions.resourcePath('Contents/images/ags.png')))
+        
+        self.titleFrame = ttk.Frame(self)
+        self.titleFrame.pack(side='top', fill='x')
+
+        self.formFrame = ttk.Frame(self)
+        self.formFrame.pack(side='top', expand=True)
+
+        self.buttonsFrame = ttk.Frame(self)
+        self.buttonsFrame.pack(side='bottom', fill='x')
+
+        self.closeButton = ttk.Button(self.buttonsFrame, text='Close', style='Close.secondary.TButton', command=self.destroy)
+        self.closeButton.pack(side='right', padx=10, pady=10)
+    
+    def getData(self, frame: ttk.Frame): #entries: list[ttk.Entry]) -> list:
+        ''' Get the data from the entry widgets within a Frame and return it as a list. '''
+        data = []
+        entries = [entry for entry in frame.winfo_children() if isinstance(entry, (ttk.Entry, ttk.Combobox, ttk.DateEntry))]
+        
+        for entry in entries:
+            if hasattr(entry, 'get'):
+                data.append(entry.get())
+            elif isinstance(entry, ttk.DateEntry):
+                data.append(entry.entry.get())  
+        #print(data)
+        return data
 
 class Accoridon(ttk.Treeview):
     ''' Class to create the accordion menu, allowing the user to view the Options available '''

@@ -1,9 +1,10 @@
+''' General functions that are used throughout the program. '''
 import os
 import sys
 
 # Adapted from https://stackoverflow.com/questions/17576366/print-out-the-whole-directory-tree
 def getDirectoryStructure(rootDir) -> dict:
-    ''' Get the directory structure of a given directory.
+    ''' Recursively get the directory structure of a given directory.
     Returns a nested dictionary of all folders and a list files within each folder, within a given directory.
     Ignores hidden files and folders (starting with a .) '''
     items = {}
@@ -28,7 +29,7 @@ def getDirectoryStructure(rootDir) -> dict:
     return items
 
 def resourcePath(relativePath):
-    ''' Replace the relative path with the absolute path to the resource. This allows files to be accessed when the program is compiled. '''
+    ''' Replace the relative path with the absolute path to the resource. This allows files to be accessed when the program is compiled to an executable. '''
     try:
         basePath = sys._MEIPASS
     except Exception:

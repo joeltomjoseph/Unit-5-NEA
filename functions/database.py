@@ -4,7 +4,7 @@ import sqlite3 as sql
 def createAccountTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Accounts (
-        accountID INT PRIMARY KEY,
+        accountID INTEGER PRIMARY KEY,
         username VARCHAR(20),
         password VARCHAR(20)
     );'''
@@ -14,10 +14,10 @@ def createAccountTable(cursor):
 def createStaffTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Staff (
-        staffID INT PRIMARY KEY,
+        staffID INTEGER PRIMARY KEY,
         firstName VARCHAR(10),
         surname VARCHAR(20),
-        accountID INT,
+        accountID INTEGER,
         role VARCHAR(10),
         staffEmail VARCHAR(50),
         FOREIGN KEY (accountID) REFERENCES tbl_Accounts(accountID)
@@ -28,13 +28,13 @@ def createStaffTable(cursor):
 def createPupilTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Pupils (
-        memberID INT PRIMARY KEY,
+        memberID INTEGER PRIMARY KEY,
         firstName VARCHAR(10),
         surname VARCHAR(20),
-        accountID INT,
+        accountID INTEGER,
         dateOfBirth DATE,
         studentEmail VARCHAR(50),
-        classID INT,
+        classID INTEGER,
         house VARCHAR(15),
         FOREIGN KEY (accountID) REFERENCES tbl_Accounts(accountID),
         FOREIGN KEY (classID) REFERENCES tbl_Classes(classID)
@@ -45,7 +45,7 @@ def createPupilTable(cursor):
 def createClassesTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Classes (
-        classID INT PRIMARY KEY,
+        classID INTEGER PRIMARY KEY,
         yearGroup VARCHAR(2),
         registrationClass VARCHAR(1)
     );'''
@@ -55,13 +55,13 @@ def createClassesTable(cursor):
 def createEventTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Events (
-        eventID INT PRIMARY KEY,
+        eventID INTEGER PRIMARY KEY,
         eventName VARCHAR(50),
         dateOfEvent DATE,
         timeOfEvent TIME,
         durationOfEvent TIME,
-        requestedBy INT,
-        locationID INT,
+        requestedBy INTEGER,
+        locationID INTEGER,
         requirements VARCHAR(50),
         FOREIGN KEY (requestedBy) REFERENCES tbl_Staff(staffID),
         FOREIGN KEY (locationID) REFERENCES tbl_Locations(locationID)
@@ -72,7 +72,7 @@ def createEventTable(cursor):
 def createLocationsTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Locations (
-        locationID INT PRIMARY KEY,
+        locationID INTEGER PRIMARY KEY,
         nameOfLocation VARCHAR(50)
     );'''
     cursor.execute(sql)
@@ -81,27 +81,39 @@ def createLocationsTable(cursor):
 def createSetupGroupsTable(cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_SetupGroups (
-        eventID INT,
-        pupilID INT,
+        eventID INTEGER,
+        pupilID INTEGER,
         PRIMARY KEY (eventID, pupilID),
         FOREIGN KEY (eventID) REFERENCES tbl_Events(eventID),
         FOREIGN KEY (pupilID) REFERENCES tbl_Pupils(memberID)
     );'''
     cursor.execute(sql)
 
-# # Call all the functions to create the tables
-# createAccountTable(cursor)
-# createStaffTable(cursor)
-# createPupilTable(cursor)
-# createClassesTable(cursor)
-# createHouseTable(cursor)
-# createEventTable(cursor)
-# createLocationsTable(cursor)
-# createSetupGroupsTable(cursor)
+def createAllTables(cursor):
+    # Call all the functions to create the tables
+    createAccountTable(cursor)
+    createStaffTable(cursor)
+    createPupilTable(cursor)
+    createClassesTable(cursor)
+    createEventTable(cursor)
+    createLocationsTable(cursor)
+    createSetupGroupsTable(cursor)
+
+# Function to delete a record from the events table with a given ID
+def deleteEventDataWithID(connection, cursor, id):
+    sql = f"DELETE FROM tbl_Events WHERE eventID=?"
+    cursor.execute(sql, (id,))
+    connection.commit()
 
 # Function to insert data into a table
 def insertData(connection, cursor, tableName, data: list):
     sql = f"INSERT INTO {tableName} VALUES ({', '.join(['?' for field in range(len(data))])})"
+    cursor.execute(sql, data)
+    connection.commit()
+
+# Function to insert data into the 'tbl_Events' table
+def insertDataIntoEventsTable(connection, cursor, data: list):
+    sql = f"INSERT INTO tbl_Events(eventName, dateOfEvent, timeOfEvent, durationOfEvent, requestedBy, locationID, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)"
     cursor.execute(sql, data)
     connection.commit()
 
@@ -119,7 +131,7 @@ def fetchRowByCondition(cursor, tableName, condition):
     row = cursor.fetchone()
     return row
 
-def getLatestEventsDetails(cursor):
+def getLatestEventsDetails(cursor) -> str:
     ''' Function to get the details of the latest 3 events. Gets relevant details to be displayed on the dashboard. '''
     sql = f'''SELECT tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, tbl_Locations.nameOfLocation, tbl_Events.requirements
         FROM tbl_Events INNER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID

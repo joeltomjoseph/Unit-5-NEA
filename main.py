@@ -203,7 +203,7 @@ class Dashboard(ui.PageStructure):
         self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='ItalicCaption.TLabel')
         self.userLabel.pack(side='left', expand=True)
 
-        self.versionLabel = ttk.Label(self.bottomFrame, text='Version XXX', style='ItalicCaption.TLabel')
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: PROTOTYPE', style='ItalicCaption.TLabel')
         self.versionLabel.pack(side='right', expand=True)
 
         self.timeLabel = ttk.Label(self.bottomFrame, text='RAHH', style='ItalicCaption.TLabel')
@@ -225,7 +225,7 @@ class UpcomingEventsPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
 
-        self.table = ui.TableView(self, controller, rowData=database.getAllEventsDetails(cursor), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
+        self.table = ui.TableView(self, controller, connection, cursor, rowData=database.getAllEventsDetails(cursor), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
 
 class DocumentationPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -393,6 +393,7 @@ class FAQPage(ui.PageStructure):
 #CONSTANTS
 connection = sql.connect(generalFunctions.resourcePath("Contents/TestDatabase.db"))  # Establish a connection to the database
 cursor = connection.cursor() # Create a cursor object to execute SQL queries
+database.createAllTables(cursor) # Create all the tables in the database if they don't already exist
 
 app = MainApp()
 app.mainloop()

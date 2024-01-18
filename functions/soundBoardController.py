@@ -56,14 +56,16 @@ groupsOfMessages = [
     [mido.Message('control_change', channel=0, control=99, value=103), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=98), mido.Message('control_change', channel=0, control=38, value=7)], # SET LR MASTER FADER TO 0
     [mido.Message('note_on', channel=0, note=32, velocity=63), mido.Message('note_on', channel=0, note=32, velocity=0)], # UNMUTE CHANNEL 1
     [mido.Message('control_change', channel=0, control=99, value=32), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=98), mido.Message('control_change', channel=0, control=38, value=7)] # SET CHANNEL 1 FADER TO 0dB
-    ]
+    ] #TODO change this into a collections.deque() and then pop the first item off the list and send it, then pop the next item off the list and send it, etc. etc.
 
 def readInput():
+    ''' Function to read input from the QU-24 and print it to the console. For debugging purposes. '''
     with mido.open_input('QU-24 MIDI Out') as inport:
         for message in inport:
             print(f"{message}")
 
-def sendOutput():
+def sendOutput(): #TODO alter this to take in a queue of messages and then send them
+    ''' Function to send output to the QU-24. '''
     with mido.open_output('QU-24 MIDI In') as outport:
         for group in groupsOfMessages:
             for message in group:
@@ -72,6 +74,7 @@ def sendOutput():
             #time.sleep(1)
 
 def unMuteChannel(channel) -> mido.Message:
+    ''' Function to unmute a channel. '''
     extraChannelLookup = {
         'ST1':64,
         'ST2':65,
@@ -88,8 +91,9 @@ def unMuteChannel(channel) -> mido.Message:
         return None
     return [mido.Message('note_on', channel=0, note=channel, velocity=63), mido.Message('note_on', channel=0, note=channel, velocity=0)]
 
-def setVolume(volume):
+def setVolume(channel, volume):
     pass
+    
 readInput()
 #ar.listAudioDevices()
 #ar.recordAudio()

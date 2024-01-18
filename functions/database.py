@@ -1,7 +1,7 @@
 import sqlite3 as sql
 
 # Function to create the 'tbl_Accounts' table
-def createAccountTable(cursor):
+def createAccountTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Accounts (
         accountID INTEGER PRIMARY KEY,
@@ -11,7 +11,7 @@ def createAccountTable(cursor):
     cursor.execute(sql)
 
 # Function to create the 'tbl_Staff' table
-def createStaffTable(cursor):
+def createStaffTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Staff (
         staffID INTEGER PRIMARY KEY,
@@ -25,7 +25,7 @@ def createStaffTable(cursor):
     cursor.execute(sql)
 
 # Function to create the 'tbl_Pupils' table
-def createPupilTable(cursor):
+def createPupilTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Pupils (
         memberID INTEGER PRIMARY KEY,
@@ -42,7 +42,7 @@ def createPupilTable(cursor):
     cursor.execute(sql)
 
 # Function to create the 'tbl_Classes' table
-def createClassesTable(cursor):
+def createClassesTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Classes (
         classID INTEGER PRIMARY KEY,
@@ -52,7 +52,7 @@ def createClassesTable(cursor):
     cursor.execute(sql)
 
 # Function to create the 'tbl_Events' table
-def createEventTable(cursor):
+def createEventTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Events (
         eventID INTEGER PRIMARY KEY,
@@ -69,7 +69,7 @@ def createEventTable(cursor):
     cursor.execute(sql)
 
 # Function to create the 'tbl_Locations' table
-def createLocationsTable(cursor):
+def createLocationsTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Locations (
         locationID INTEGER PRIMARY KEY,
@@ -78,7 +78,7 @@ def createLocationsTable(cursor):
     cursor.execute(sql)
 
 # Function to create the 'tbl_SetupGroups' table
-def createSetupGroupsTable(cursor):
+def createSetupGroupsTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_SetupGroups (
         eventID INTEGER,
@@ -89,7 +89,7 @@ def createSetupGroupsTable(cursor):
     );'''
     cursor.execute(sql)
 
-def createAllTables(cursor):
+def createAllTables(cursor: sql.Cursor):
     # Call all the functions to create the tables
     createAccountTable(cursor)
     createStaffTable(cursor)
@@ -99,21 +99,9 @@ def createAllTables(cursor):
     createLocationsTable(cursor)
     createSetupGroupsTable(cursor)
 
-# Function to delete a record from the events table with a given ID
-def deleteEventDataWithID(connection, cursor, id):
-    sql = f"DELETE FROM tbl_Events WHERE eventID=?"
-    cursor.execute(sql, (id,))
-    connection.commit()
-
 # Function to insert data into a table
-def insertData(connection, cursor, tableName, data: list):
+def insertData(connection, cursor: sql.Cursor, tableName, data: list):
     sql = f"INSERT INTO {tableName} VALUES ({', '.join(['?' for field in range(len(data))])})"
-    cursor.execute(sql, data)
-    connection.commit()
-
-# Function to insert data into the 'tbl_Events' table
-def insertDataIntoEventsTable(connection, cursor, data: list):
-    sql = f"INSERT INTO tbl_Events(eventName, dateOfEvent, timeOfEvent, durationOfEvent, requestedBy, locationID, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)"
     cursor.execute(sql, data)
     connection.commit()
 
@@ -125,13 +113,30 @@ def getAllRows(cursor, tableName):
     return rows
 
 # Function to fetch a specific row from a table based on a condition
-def fetchRowByCondition(cursor, tableName, condition):
+def fetchRowByCondition(cursor: sql.Cursor, tableName, condition):
     sql = f"SELECT * FROM {tableName} WHERE {condition}"
     cursor.execute(sql)
     row = cursor.fetchone()
     return row
 
-def getLatestEventsDetails(cursor) -> str:
+# Function to delete a record from the events table with a given ID
+def deleteEventDataWithID(connection, cursor: sql.Cursor, id):
+    sql = f"DELETE FROM tbl_Events WHERE eventID=?"
+    cursor.execute(sql, (id,))
+    connection.commit()
+
+# Function to insert data into the 'tbl_Events' table
+def insertDataIntoEventsTable(connection, cursor: sql.Cursor, data: list):
+    sql = f"INSERT INTO tbl_Events(eventName, dateOfEvent, timeOfEvent, durationOfEvent, requestedBy, locationID, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    cursor.execute(sql, data)
+    connection.commit()
+
+def updateEvent(connection, cursor: sql.Cursor, data: list, id):
+    sql = f"UPDATE tbl_Events SET eventName=?, dateOfEvent=?, timeOfEvent=?, durationOfEvent=?, requestedBy=?, locationID=?, requirements=? WHERE eventID={id}"
+    cursor.execute(sql, data)
+    connection.commit()
+
+def getLatestEventsDetails(cursor: sql.Cursor) -> str:
     ''' Function to get the details of the latest 3 events. Gets relevant details to be displayed on the dashboard. '''
     sql = f'''SELECT tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, tbl_Locations.nameOfLocation, tbl_Events.requirements
         FROM tbl_Events INNER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
@@ -150,15 +155,36 @@ def getLatestEventsDetails(cursor) -> str:
         formatted = "No events found."
     return formatted
 
-def getAllEventsDetails(cursor):
+def getAllEventsDetails(cursor: sql.Cursor) -> list:
     ''' Function to get the details of all events. Gets relevant details to be displayed on the Upcoming Events Page. '''
     sql = f'''SELECT tbl_Events.eventID, tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, tbl_Locations.nameOfLocation, tbl_Events.requirements
         FROM tbl_Events INNER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
-        INNER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
-        ; '''
+        INNER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID; '''
     cursor.execute(sql)
     rows = cursor.fetchall()
+
+    # cursor.execute('''SELECT eventID, pupilID FROM tbl_SetupGroups
+    #                INNER JOIN tbl_Events ON tbl_SetupGroups.eventID = tbl_Events.eventID
+    #                INNER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID;''')
     return rows
+
+def getStaffNamesandIDs(cursor: sql.Cursor) -> list:
+    ''' Function to get the ids and names of all staff members. '''
+    sql = f"SELECT staffID, surname FROM tbl_Staff"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+
+    formattedRows = [f'{record[0]}: {record[1]}' for record in rows] # ie. ['1: Smith', '2: Doe', . . . ] this allows id and name to be split easily for displaying in the combobox easily and commiting to the database easily
+    return formattedRows
+
+def getLocationsandIDs(cursor: sql.Cursor) -> list:
+    ''' Function to get the ids and names of all locations. '''
+    sql = f"SELECT locationID, nameOfLocation FROM tbl_Locations"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    
+    formattedRows = [f'{record[0]}: {record[1]}' for record in rows] # ie. ['1: Sports Hall', '2: Conference Room', . . . ] this allows id and name to be split easily for displaying in the combobox easily and commiting to the database easily
+    return formattedRows
 
 #connection = sql.connect("TestDatabase.db")
 #cursor = connection.cursor()

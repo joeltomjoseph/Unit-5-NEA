@@ -90,7 +90,7 @@ def createSetupGroupsTable(cursor: sql.Cursor):
     cursor.execute(sql)
 
 def createAllTables(cursor: sql.Cursor):
-    # Call all the functions to create the tables
+    ''' Call all the functions to create the tables '''
     createAccountTable(cursor)
     createStaffTable(cursor)
     createPupilTable(cursor)
@@ -99,39 +99,40 @@ def createAllTables(cursor: sql.Cursor):
     createLocationsTable(cursor)
     createSetupGroupsTable(cursor)
 
-# Function to insert data into a table
-def insertData(connection, cursor: sql.Cursor, tableName, data: list):
+def insertData(connection: sql.Connection, cursor: sql.Cursor, tableName, data: list):
+    ''' Function to insert data into a table. '''
     sql = f"INSERT INTO {tableName} VALUES ({', '.join(['?' for field in range(len(data))])})"
     cursor.execute(sql, data)
     connection.commit()
 
-# Function to fetch all rows from a table
 def getAllRows(cursor, tableName):
+    ''' Function to fetch all rows from a table. '''
     sql = f"SELECT * FROM {tableName}"
     cursor.execute(sql)
     rows = cursor.fetchall()
     return rows
 
-# Function to fetch a specific row from a table based on a condition
 def fetchRowByCondition(cursor: sql.Cursor, tableName, condition):
+    ''' Function to fetch a specific row from a table based on a condition. '''
     sql = f"SELECT * FROM {tableName} WHERE {condition}"
     cursor.execute(sql)
     row = cursor.fetchone()
     return row
 
-# Function to delete a record from the events table with a given ID
-def deleteEventDataWithID(connection, cursor: sql.Cursor, id):
-    sql = f"DELETE FROM tbl_Events WHERE eventID=?"
+def deleteRowWithID(connection: sql.Connection, cursor: sql.Cursor, tableName, idName, id):
+    ''' Function to delete a row from a table with a given ID. '''
+    sql = f"DELETE FROM {tableName} WHERE {idName}=?"
     cursor.execute(sql, (id,))
     connection.commit()
 
-# Function to insert data into the 'tbl_Events' table
-def insertDataIntoEventsTable(connection, cursor: sql.Cursor, data: list):
+def insertDataIntoEventsTable(connection: sql.Connection, cursor: sql.Cursor, data: list):
+    ''' Function to insert data into the 'tbl_Events' table. '''
     sql = f"INSERT INTO tbl_Events(eventName, dateOfEvent, timeOfEvent, durationOfEvent, requestedBy, locationID, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)"
     cursor.execute(sql, data)
     connection.commit()
 
-def updateEvent(connection, cursor: sql.Cursor, data: list, id):
+def updateEvent(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
+    ''' Function to update an event in the 'tbl_Events' table. '''
     sql = f"UPDATE tbl_Events SET eventName=?, dateOfEvent=?, timeOfEvent=?, durationOfEvent=?, requestedBy=?, locationID=?, requirements=? WHERE eventID={id}"
     cursor.execute(sql, data)
     connection.commit()
@@ -184,6 +185,54 @@ def getLocationsandIDs(cursor: sql.Cursor) -> list:
     rows = cursor.fetchall()
     
     formattedRows = [f'{record[0]}: {record[1]}' for record in rows] # ie. ['1: Sports Hall', '2: Conference Room', . . . ] this allows id and name to be split easily for displaying in the combobox easily and commiting to the database easily
+    return formattedRows
+
+def getAllMemberDetails(cursor: sql.Cursor) -> list:
+    ''' Function to get the details of all members. Gets relevant details to be displayed on the Members Page. '''
+    sql = f'''SELECT tbl_Pupils.memberID, tbl_Pupils.firstName, tbl_Pupils.surname, tbl_Accounts.username, tbl_Classes.yearGroup || tbl_Classes.registrationClass, tbl_Pupils.studentEmail, tbl_Pupils.dateOfBirth, tbl_Pupils.house
+        FROM tbl_Pupils INNER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID
+        INNER JOIN tbl_Accounts ON tbl_Pupils.accountID = tbl_Accounts.accountID; '''
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    return rows
+
+def getClassesandIDs(cursor: sql.Cursor) -> list:
+    ''' Function to get the ids and names of all Classes. '''
+    sql = f"SELECT classID, yearGroup, registrationClass FROM tbl_Classes"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+
+    formattedRows = [f'{record[0]}: {record[1]}{record[2]}' for record in rows] # ie. ['1: 14S', '2: 14T', . . . ] this allows id and name to be split easily for displaying in the combobox easily and commiting to the database easily
+    return formattedRows
+
+def insertDataIntoMemberTable(connection: sql.Connection, cursor: sql.Cursor, data: list):
+    ''' Function to insert data into the 'tbl_Pupils' table. '''
+    sql = f"INSERT INTO tbl_Pupils(firstName, surname, accountID, classID, studentEmail, dateOfBirth, house) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    cursor.execute(sql, data)
+    connection.commit()
+
+def updateMember(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
+    ''' Function to update a member in the 'tbl_Pupils' table. '''
+    sql = f"UPDATE tbl_Pupils SET firstName=?, surname=?, classID=?, studentEmail=?, dateOfBirth=?, house=? WHERE memberID={id}"
+    cursor.execute(sql, data)
+    connection.commit()
+
+def createAccount(connection: sql.Connection, cursor: sql.Cursor, username: list[str]) -> int:
+    ''' Function to create an account with given username and default password 'password'.
+    Returns the accountID of the created account. '''
+    sql = f"INSERT INTO tbl_Accounts(username, password) VALUES (?, 'password')"
+    cursor.execute(sql, username)
+    connection.commit()
+
+    return cursor.lastrowid
+
+def getAccountsAndIDs(cursor: sql.Cursor) -> list:
+    ''' Function to get the ids and usernames of all accounts. '''
+    sql = f"SELECT accountID, username FROM tbl_Accounts"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+
+    formattedRows = [f'{record[0]}: {record[1]}' for record in rows] # ie. ['1: Smith', '2: Doe', . . . ] this allows id and name to be split easily for displaying in the combobox easily and commiting to the database easily
     return formattedRows
 
 #connection = sql.connect("TestDatabase.db")

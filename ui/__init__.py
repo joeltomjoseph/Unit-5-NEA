@@ -96,8 +96,7 @@ def createStyle():
     style.images = createImages()
     return style
 
-#Tooltip class and functions adapted from
-#https://stackoverflow.com/questions/20399243/display-message-when-hovering-over-something-with-mouse-cursor-in-python
+#Tooltip class and functions adapted from https://stackoverflow.com/questions/20399243/display-message-when-hovering-over-something-with-mouse-cursor-in-python
 class ToolTip:
     ''' Class to create a tooltip for a given widget. With customisable text. '''
     def __init__(self, widget: tk.Widget):
@@ -264,7 +263,7 @@ class updatedTableview(Tableview):
 
         ttk.Button(frame, text="⎌", command=self.reset_table, style="symbol.Link.TButton").pack(side='right', padx=5, pady=5)
 
-class TableView(ttk.Frame):
+class EventsTableView(ttk.Frame):
     ''' Class to create the tableview, allowing the user to view the data in a table format. '''
     def __init__(self, parent, controller, connection, cursor, rowData, columnData, **kwargs):
         super().__init__(parent, **kwargs)
@@ -286,12 +285,14 @@ class TableView(ttk.Frame):
             if Messagebox.show_question('Are you sure you want to delete this event?', 'Delete Event') == 'Yes':
                 data = self.table.view.item(row, 'values')
                 # print(data)
-                database.deleteEventDataWithID(self.connection, self.cursor, data[0])
+                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Events', 'eventID', data[0])
 
                 self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
         
     def addField(self):
         ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
+        staffValues = [staff.split(': ') for staff in database.getStaffNamesandIDs(self.cursor)] # [['1', 'Henderson'], ['2', 'Campbell-Nesbitt'], ['3', 'Byrne'], ['4', 'Dark']]
+        locationValues = [location.split(': ') for location in database.getLocationsandIDs(self.cursor)]
 
         self.eventForm = GenericForm(self, self.controller, 'Add an Event/Assembly', '600x700')
 
@@ -316,11 +317,13 @@ class TableView(ttk.Frame):
         eventDurationEntry.pack()
 
         ttk.Label(self.eventForm.formFrame, text="Requested By").pack()
-        eventRequestedByEntry = ttk.Combobox(self.eventForm.formFrame)
+        eventRequestedByEntry = ttk.Combobox(self.eventForm.formFrame, values=staffValues)
+        eventRequestedByEntry.state(['readonly'])
         eventRequestedByEntry.pack()
 
         ttk.Label(self.eventForm.formFrame, text="Location").pack()
-        eventLocationEntry = ttk.Combobox(self.eventForm.formFrame)
+        eventLocationEntry = ttk.Combobox(self.eventForm.formFrame, values=[f'{location[0]} {location[1]}' for location in locationValues])
+        eventLocationEntry.state(['readonly'])
         eventLocationEntry.pack()
 
         ttk.Label(self.eventForm.formFrame, text="Requirements").pack()
@@ -333,11 +336,13 @@ class TableView(ttk.Frame):
     def submit(self):
         data = self.eventForm.getData(self.eventForm.formFrame)
         # print(data)
-        Messagebox.show_info('Event Added Successfully', 'Success')
-        
         database.insertDataIntoEventsTable(self.connection, self.cursor, data)
 
+        Messagebox.show_info('Event Added Successfully', 'Success')
+        
         self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
+
+        self.eventForm.destroy()
 
     def editField(self):
         ''' Handles when the edit button is clicked - open a new window to edit the details of the selected row and commit the changes to the database. '''
@@ -381,14 +386,14 @@ class TableView(ttk.Frame):
 
             ttk.Label(self.eventForm.formFrame, text="Requested By").pack()
             eventRequestedByEntry = ttk.Combobox(self.eventForm.formFrame, values=staffValues) #[staff[1] for staff in staffValues]
-            # eventRequestedByEntry.state(['readonly'])
+            eventRequestedByEntry.state(['readonly'])
             # eventRequestedByEntry.insert(0, data[5])
             eventRequestedByEntry.set(data[5])
             eventRequestedByEntry.pack()
 
             ttk.Label(self.eventForm.formFrame, text="Location").pack()
             eventLocationEntry = ttk.Combobox(self.eventForm.formFrame, values=[f'{location[0]} {location[1]}' for location in locationValues]) #[location[1] for location in locationValues]
-            # eventLocationEntry.state(['readonly'])
+            eventLocationEntry.state(['readonly'])
             # eventLocationEntry.insert(0, data[6])
             eventLocationEntry.set(f'{data[6][0]} {data[6][1]}')
             eventLocationEntry.pack()
@@ -404,11 +409,162 @@ class TableView(ttk.Frame):
     def edit(self, id):
         data = self.eventForm.getData(self.eventForm.formFrame)
 
-        Messagebox.show_info('Event Updated Successfully', 'Success')
-        
         database.updateEvent(self.connection, self.cursor, data, id)
 
+        Messagebox.show_info('Event Updated Successfully', 'Success')
+        
         self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
+
+        self.eventForm.destroy()
+
+class MemberTableView(ttk.Frame):
+    ''' Class to create the tableview, allowing the user to view the data in a table format. '''
+    def __init__(self, parent, controller, connection, cursor, rowData, columnData, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.connection = connection
+        self.cursor = cursor
+        self.controller = controller
+
+        self.pack(side='top', fill='both', expand=True)
+
+        self.table = updatedTableview(self, self.controller, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
+        self.table.configure(style='t.primary.Treeview')
+        self.table.pack(side='top', fill='both', expand=True)
+    
+    def deleteField(self):
+        ''' Handles when the delete button is clicked - get the id of the row that is selected and delete it from the database. '''
+        row = self.table.view.focus()
+    
+        if row:
+            if Messagebox.show_question('Are you sure you want to delete this Member?', 'Delete Member') == 'Yes':
+                data = self.table.view.item(row, 'values')
+                # print(data)
+                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Pupils', 'memberID', data[0])
+
+                self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+        
+    def addField(self):
+        ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
+        # yearGroupValues = [staff.split(': ') for staff in database.getStaffNamesandIDs(self.cursor)] # [['1', 'Henderson'], ['2', 'Campbell-Nesbitt'], ['3', 'Byrne'], ['4', 'Dark']]
+        # regClassValues = [location.split(': ') for location in database.getLocationsandIDs(self.cursor)]
+        classValues = [clss.split(': ') for clss in database.getClassesandIDs(self.cursor)]
+
+        self.eventForm = GenericForm(self, self.controller, 'Add a Member', '600x700')
+
+        self.title = ttk.Label(self.eventForm.titleFrame, text='Add an Member', style='BoldCaption.TLabel')
+        self.title.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="First Name").pack()
+        firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+        firstNameEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Surname").pack()
+        surnameEntry = ttk.Entry(self.eventForm.formFrame)
+        surnameEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account with default password 'password'").pack()
+        usernameEntry = ttk.Entry(self.eventForm.formFrame)
+        usernameEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Class").pack()
+        classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=classValues)
+        classEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Email").pack()
+        emailEntry = ttk.Entry(self.eventForm.formFrame)
+        emailEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Date of Birth").pack()
+        birthDateEntry = ttk.DateEntry(self.eventForm.formFrame, dateformat=r'%Y-%m-%d') # ie. 2024-01-10, DATE datatype format recognised by SQLite
+        birthDateEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="House").pack()
+        houseEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Tower', 'Massereene', 'Tardree', 'Clotworthy'])
+        houseEntry.pack()
+
+        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='action.secondary.TButton', command=self.submit)
+        self.submitButton.pack(side='left', padx=10, pady=10)
+
+    def submit(self):
+        data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
+        #print(data)
+        data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'password' and update the value of data[2] to the accountID
+        database.insertDataIntoMemberTable(self.connection, self.cursor, data)
+
+        Messagebox.show_info('Member Added Successfully', 'Success')
+        
+        self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+
+        self.eventForm.destroy()
+
+    def editField(self):
+        ''' Handles when the edit button is clicked - open a new window to edit the details of the selected row and commit the changes to the database. '''
+        row = self.table.view.focus()
+        if row:
+            data = list(self.table.view.item(row, 'values'))
+
+            classValues = [clss.split(': ') for clss in database.getClassesandIDs(self.cursor)]
+            accountValues = [account.split(': ') for account in database.getAccountsAndIDs(self.cursor)]
+
+            data[3] = [account for account in accountValues if account[1] == data[3]][0] # replace the name with the id and username of the account
+            data[4] = [cls for cls in classValues if cls[1] == data[4]][0] # replace the name with the id and name of the staff member
+            # print(data)
+
+            self.eventForm = GenericForm(self, self.controller, 'Update Member Info', '600x700')
+
+            self.title = ttk.Label(self.eventForm.titleFrame, text='Update Member Info', style='BoldCaption.TLabel')
+            self.title.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="First Name").pack()
+            firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+            firstNameEntry.insert(0, data[1])
+            firstNameEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Surname").pack()
+            surnameEntry = ttk.Entry(self.eventForm.formFrame)
+            surnameEntry.insert(0, data[2])
+            surnameEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Username").pack()
+            usernameEntry = ttk.Entry(self.eventForm.formFrame)
+            usernameEntry.insert(0, data[3])
+            usernameEntry.configure(state='readonly')
+            usernameEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Class").pack()
+            classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=classValues)
+            classEntry.set(data[4])
+            classEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Email").pack()
+            emailEntry = ttk.Entry(self.eventForm.formFrame)
+            emailEntry.insert(0, data[5])
+            emailEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Date of Birth").pack()
+            birthDateEntry = ttk.DateEntry(self.eventForm.formFrame, dateformat=r'%Y-%m-%d') # ie. 2024-01-10, DATE datatype format recognised by SQLite
+            birthDateEntry.entry.delete(0, 'end')
+            birthDateEntry.entry.insert(0, data[6])
+            birthDateEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="House").pack()
+            houseEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Tower', 'Massereene', 'Tardree', 'Clotworthy'])
+            houseEntry.set(data[7])
+            houseEntry.pack()
+
+            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='action.secondary.TButton', command=lambda: self.edit(id=data[0]))
+            self.submitButton.pack(side='left', padx=10, pady=10)
+
+    def edit(self, id):
+        data = self.eventForm.getData(self.eventForm.formFrame)
+
+        database.updateMember(self.connection, self.cursor, data, id)
+
+        Messagebox.show_info('Member Updated Successfully', 'Success')
+        
+        self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+
+        self.eventForm.destroy()
 
 class GenericForm(tk.Toplevel):
     def __init__(self, parent, controller, title, size, **kwargs):
@@ -430,14 +586,17 @@ class GenericForm(tk.Toplevel):
         self.closeButton = ttk.Button(self.buttonsFrame, text='Close', style='Close.secondary.TButton', command=self.destroy)
         self.closeButton.pack(side='right', padx=10, pady=10)
     
-    def getData(self, frame: ttk.Frame) -> list: #entries: list[ttk.Entry]) -> list:
+    def getData(self, frame: ttk.Frame) -> list:
         ''' Get the data from the entry widgets within a Frame and return it as a list. '''
         data = []
-        entries = [entry for entry in frame.winfo_children() if isinstance(entry, (ttk.Entry, ttk.Combobox, ttk.DateEntry))]
+        entries = [entry for entry in frame.winfo_children() if isinstance(entry, (ttk.Entry, ttk.Combobox, ttk.DateEntry))] # get all entry widgets in the frame
         
         for entry in entries:
             if isinstance(entry, ttk.Combobox):
-                data.append(entry.get().split(' ')[0]) # ie. '1 Henderson' -> '1'
+                if entry.get().split(' ')[0].isdigit(): # if the first part of the string is a digit denoting an ID
+                    data.append(entry.get().split(' ')[0]) # only append the ID, ie. '1 Henderson' -> '1'
+                else:
+                    data.append(entry.get())
             elif hasattr(entry, 'get'):
                 data.append(entry.get())
             elif isinstance(entry, ttk.DateEntry):

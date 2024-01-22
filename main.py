@@ -225,7 +225,7 @@ class UpcomingEventsPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
 
-        self.table = ui.TableView(self, controller, connection, cursor, rowData=database.getAllEventsDetails(cursor), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
+        self.table = ui.EventsTableView(self, controller, connection, cursor, rowData=database.getAllEventsDetails(cursor), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements'])
 
 class DocumentationPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -265,16 +265,13 @@ class MemberInformationPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
 
-        self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.pack(side='top', fill='both', expand=True)
+        self.statisticsFrame = ttk.Frame(self, style='TFrame')
+        self.statisticsFrame.pack(side='top', fill='both', expand=True)
 
-        self.loginButton = ttk.Button(self.contentFrame, text='Member Information Moment', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        self.loginButton.pack()
+        self.statisticsLabel = ttk.Label(self.statisticsFrame, text='Statistics', style='ItalicCaption.TLabel')
+        self.statisticsLabel.pack(padx=10, pady=10)
 
-        self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        self.label2.pack()
+        self.table = ui.MemberTableView(self, controller, connection, cursor, rowData=database.getAllMemberDetails(cursor), columnData=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
 
 class ArchivePage(ui.PageStructure):
     def __init__(self, parent, controller):

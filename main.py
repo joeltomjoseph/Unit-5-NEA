@@ -19,6 +19,7 @@ class MainApp(tk.Tk):
         self.geometry('1000x1000+250+0')
         #self.state('zoomed')
         self.minsize(1000,900)
+        self.protocol("WM_DELETE_WINDOW", self.closeApplication) # Bind the closeApplication function to the window closing event
 
         #Initialising some required fonts 
         fontCaption = font.nametofont('TkCaptionFont')
@@ -64,6 +65,14 @@ class MainApp(tk.Tk):
             self.geometry(resizeTo)
         frame = self.frames[cont]
         frame.tkraise()
+
+    def closeApplication(self):
+        ''' Safely close lose the application. Close the database connection and then destroy the window. '''
+        try:
+            self.destroy() # Destroy the window
+            connection.close() # Close the database connection
+        except:
+            messagebox.showinfo('Error', 'Failed to close the application, this is likely due to something still. Please try again. ')
 
 class LoginPage(ui.PageStructure):
     def __init__(self, parent, controller):

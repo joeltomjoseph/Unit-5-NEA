@@ -1,5 +1,7 @@
 import mido
 import time
+from collections import deque
+
 from functions import soundBoardRecording as ar
 
 '''
@@ -56,7 +58,7 @@ groupsOfMessages = [
     [mido.Message('control_change', channel=0, control=99, value=103), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=98), mido.Message('control_change', channel=0, control=38, value=7)], # SET LR MASTER FADER TO 0
     [mido.Message('note_on', channel=0, note=32, velocity=63), mido.Message('note_on', channel=0, note=32, velocity=0)], # UNMUTE CHANNEL 1
     [mido.Message('control_change', channel=0, control=99, value=32), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=98), mido.Message('control_change', channel=0, control=38, value=7)] # SET CHANNEL 1 FADER TO 0dB
-    ] #TODO change this into a collections.deque() and then pop the first item off the list and send it, then pop the next item off the list and send it, etc. etc.
+    ] #TODO change this into a collections.deque() and then pop the first item off the list and send it, then pop the next item off the list and send it, etc.
 
 def readInput():
     ''' Function to read input from the QU-24 and print it to the console. For debugging purposes. '''
@@ -73,8 +75,8 @@ def sendOutput(): #TODO alter this to take in a queue of messages and then send 
                 outport.send(message)
             #time.sleep(1)
 
-def unMuteChannel(channel) -> mido.Message:
-    ''' Function to unmute a channel. '''
+def controlMuteChannel(channel, mute: bool = False) -> mido.Message:
+    ''' Function to unmute a channel. If mute is True, then mute the channel. '''
     extraChannelLookup = {
         'ST1':64,
         'ST2':65,
@@ -89,11 +91,37 @@ def unMuteChannel(channel) -> mido.Message:
         channel = extraChannelLookup[channel]
     else:
         return None
-    return [mido.Message('note_on', channel=0, note=channel, velocity=63), mido.Message('note_on', channel=0, note=channel, velocity=0)]
-
-def setVolume(channel, volume):
-    pass
     
+    if mute:
+        return [mido.Message('note_on', channel=0, note=channel, velocity=127), mido.Message('note_on', channel=0, note=channel, velocity=0)]
+    else:
+        return [mido.Message('note_on', channel=0, note=channel, velocity=63), mido.Message('note_on', channel=0, note=channel, velocity=0)]
+
+def setVolume(channel, volume: int) -> mido.Message:
+    ''' Function to set the volume of a channel. 
+    VOLUME LEVELS for FADERS (dBu)
+    +10 = 127, +5 = 114, 0 = 98, -5 = 79, -10 = 63, -15 = 54, -20 = 47, -25 = 39, -30 = 31, -35 = 23, -40 = 16, -45 = 12, -inf = 0
+    '''
+    extraChannelLookup = {
+        'ST1':64,
+        'ST2':65,
+        'ST3':66,
+        'LR':103,
+        'MTX1-2':108
+    }
+
+    if channel in range(1, 25):
+        channel += 31
+    elif channel in extraChannelLookup:
+        channel = extraChannelLookup[channel]
+    else:
+        return None
+    
+    if not(volume >= 0 and volume <= 127):
+        return None
+
+    return [mido.Message('control_change', channel=0, control=99, value=channel), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=volume), mido.Message('control_change', channel=0, control=38, value=7)]
+
 readInput()
 #ar.listAudioDevices()
 #ar.recordAudio()

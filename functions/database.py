@@ -145,7 +145,7 @@ def getLatestEventsDetails(cursor: sql.Cursor) -> str:
         WHERE tbl_Events.dateOfEvent >= DATE() LIMIT 3; '''
     cursor.execute(sql)
     rows = cursor.fetchall()
-    #formatted = f'''{*rows[0],}\n{*rows[1],}\n{*rows[2],}'''
+    # formatted = f'''{*rows[0],}\n{*rows[1],}\n{*rows[2],}'''
     if len(rows) == 3:
         formatted = f'{" - ".join(str(i) for i in rows[0])}\n\n{" - ".join(str(i) for i in rows[1])}\n\n{" - ".join(str(i) for i in rows[2])}'
     elif len(rows) == 2:
@@ -213,7 +213,7 @@ def insertDataIntoMemberTable(connection: sql.Connection, cursor: sql.Cursor, da
 
 def updateMember(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
     ''' Function to update a member in the 'tbl_Pupils' table. '''
-    sql = f"UPDATE tbl_Pupils SET firstName=?, surname=?, classID=?, studentEmail=?, dateOfBirth=?, house=? WHERE memberID={id}"
+    sql = f"UPDATE tbl_Pupils SET firstName=?, surname=?, accountID=?, classID=?, studentEmail=?, dateOfBirth=?, house=? WHERE memberID={id}"
     cursor.execute(sql, data)
     connection.commit()
 
@@ -237,16 +237,3 @@ def getAccountsAndIDs(cursor: sql.Cursor) -> list:
 
 #connection = sql.connect("TestDatabase.db")
 #cursor = connection.cursor()
-
-# insertData(connection, cursor, "tbl_Accounts", [3, 'lcampbellnesbitt', 'ags']); insertData(connection, cursor, "tbl_Staff", [2, 'L', 'Campbell-Nesbitt', 3, 'Admin', 'lcampbellnesbitt280@c2ken.net'])
-# insertData(connection, cursor, "tbl_Accounts", [4, 'dbyrne', 'ags']); insertData(connection, cursor, "tbl_Staff", [3, 'Damien', 'Byrne', 4, 'Head Of the Team', 'dbyrne702@c2ken.net'])
-# insertData(connection, cursor, "tbl_Accounts", [5, 'adark', 'ags']); insertData(connection, cursor, "tbl_Staff", [4, 'A', 'Dark', 5, 'Teacher', 'adark303@c2ken.net'])
-
-# insertData(connection, cursor, "tbl_Locations", [2, 'Sports Hall']); insertData(connection, cursor, 'tbl_Locations', [3, 'Conference Room'])
-
-# insertData(connection, cursor, "tbl_Events", [2, 'Senior Assembly', '30/12/23', '8:30', '45 Mins', 2, 1, 'Microphone'])
-# insertData(connection, cursor, "tbl_Events", [3, 'Junior Assembly', '1/1/24', '8:45', '30 Mins', 3, 1, 'Screen'])
-# insertData(connection, cursor, "tbl_Events", [4, 'Staff Meeting', '5/1/24', '9:15', '1 Hour', 3, 3, 'Connecting to screen'])
-# insertData(connection, cursor, "tbl_Events", [5, 'Tower House Assembly', '8/1/24', '9:15', '30 Mins', 4, 2, 'Connecting to screen'])
-
-#print(getLatestEventsDetails(cursor))

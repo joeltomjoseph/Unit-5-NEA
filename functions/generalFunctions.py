@@ -31,8 +31,8 @@ def getDirectoryStructure(rootDir) -> dict:
 def resourcePath(relativePath):
     ''' Replace the relative path with the absolute path to the resource. This allows files to be accessed when the program is compiled to an executable. '''
     try:
-        basePath = sys._MEIPASS
-    except Exception:
+        basePath = sys._MEIPASS # PyInstaller creates a temp folder and stores path in _MEIPASS
+    except Exception: # If not running as a PyInstaller executable, use the current directory
         basePath = os.path.abspath(".")
 
-    return os.path.join(basePath, relativePath)
+    return os.path.join(basePath, relativePath) # Return the absolute path to the resource

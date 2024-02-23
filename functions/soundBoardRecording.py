@@ -1,9 +1,12 @@
 import pyaudio
 import wave
-import time
+import datetime
 
-def findDeviceIndex(pyaudioInterface, searchTerm: str):
-    found = -1
+from .generalFunctions import resourcePath
+
+def findDeviceIndex(pyaudioInterface: pyaudio.PyAudio, searchTerm: str):
+    ''' Function to find the index of the QU-24 in the list of audio devices to check if it exists before recording. If the QU-24 is not found, then return None. '''
+    found = None
 
     for i in range(pyaudioInterface.get_device_count()):
         device = pyaudioInterface.get_device_info_by_index(i)
@@ -15,7 +18,8 @@ def findDeviceIndex(pyaudioInterface, searchTerm: str):
             break
     return found
 
-def listAudioDevices(pyaudioInterface):
+def listAudioDevices(pyaudioInterface: pyaudio.PyAudio):
+    ''' Function to list all the audio devices along with the number of input and output channels. For Debugging Purposes. '''
     info = pyaudioInterface.get_host_api_info_by_index(0)
     numdevices = info.get('deviceCount')
 
@@ -27,42 +31,51 @@ def recordAudio():
     p = pyaudio.PyAudio()  # Create an interface to PyAudio
 
     deviceIndex = findDeviceIndex(p, b'qu-24')
-    if deviceIndex < 0:
+    if deviceIndex == None:
         print('QU-24 is not Connected!')
     else:
         chunk = 1024  # Record in chunks of 1024 samples
-        sample_format = pyaudio.paInt24  # 24 bits per sample
-        channels = 32 #p.get_device_info_by_index(deviceIndex)['maxInputChannels']
-        fs = 48000  # Record at 48000 samples per second
-        seconds = 10
-        filename = "test3.wav"
+        sample_format = pyaudio.paInt24  # 24 bits per sample, as per the QU-24
+        channels = 32 # 32 channels of audio, as per the QU-24      #p.get_device_info_by_index(deviceIndex)['maxInputChannels']
+        fs = 48000  # Record at 48000 samples per second, as per the QU-24
+        seconds = 10 # Number of seconds to record when not using continuous recording
+        global stopFlag; stopFlag = False # Global Flag to control continuous recording, controllable outside the function
+        filename = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S") + ".wav" # Filename for the recorded audio is the current date and time
+        filePath = resourcePath('Contents/Recordings' + filename) # Filepath for the recorded audio
 
-        with wave.open(filename, 'wb') as fileObject:
+        with wave.open(filePath, 'wb') as fileObject:
             stream = p.open(format=sample_format, channels=channels, rate=fs, frames_per_buffer=chunk, input=True, input_device_index=deviceIndex)
 
             frames = []  # Initialize array to store frames
-            print('RECORDING LIL BRO')
-            # Store data in chunks for X seconds
-            '''
-            t = time.time()
-            while time.time() < t + 5:
-                data = stream.read(chunk)
-                frames.append(data)
-            '''
-            for i in range(0, int(fs / chunk * seconds)): #Might have to change to while loop for continuous recording until exception
-                data = stream.read(chunk).hex()
+            print('RECORDING STARTED')
+            
+            while True:
+                data = stream.read(chunk).hex() # Read the data and convert it to hex
 
-                filteredData = b''.join([bytes.fromhex(data[i:i+12]) for i in range(0, len(data), 192)])
+                filteredData = b''.join([bytes.fromhex(data[i:i+12]) for i in range(0, len(data), 192)]) # Filter the data to remove the extra bytes
 
-                frames.append(filteredData)
+                frames.append(filteredData) # Append the filtered data to the frames array
+                
+                if stopFlag or len(frames) > int(fs / chunk * 100): # if the stopFlag is True or the length of frames is greater than 100 seconds stop recording
+                    break
+            
+            # for i in range(0, int(fs / chunk * seconds)): #Might have to change to while loop for continuous recording until exception
+            #     data = stream.read(chunk).hex()
+            #     filteredData = b''.join([bytes.fromhex(data[i:i+12]) for i in range(0, len(data), 192)])
+            #     frames.append(filteredData)
 
             # Stop and close the stream 
             stream.stop_stream()
             stream.close()
             # Terminate the PortAudio interface
             p.terminate()
-            print('FINISHED LIL BRO')
+            print('FINISHED RECORDING')
+
             fileObject.setnchannels(2)
             fileObject.setsampwidth(p.get_sample_size(sample_format))
             fileObject.setframerate(fs)
             fileObject.writeframes(b''.join(frames))
+
+def stopRecording():
+    ''' Function to stop the continuous recording. '''
+    stopFlag = True

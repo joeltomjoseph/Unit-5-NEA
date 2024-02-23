@@ -1,6 +1,14 @@
 ''' General functions that are used throughout the program. '''
 import os
 import sys
+import platform
+import subprocess
+import shutil
+
+if platform.system() == "Windows": # If the system is Windows, get the desktop directory from the USERPROFILE environment variable
+    desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop') # Get the desktop directory
+else: # If the system is not Windows (MacOS or Linux), get the desktop directory from the home directory
+    desktop = os.path.join(os.path.join(os.path.expanduser('~')), 'Desktop')
 
 # Adapted from https://stackoverflow.com/questions/17576366/print-out-the-whole-directory-tree
 def getDirectoryStructure(rootDir) -> dict:
@@ -36,3 +44,19 @@ def resourcePath(relativePath):
         basePath = os.path.abspath(".")
 
     return os.path.join(basePath, relativePath) # Return the absolute path to the resource
+
+def showFileExplorer(file):
+    ''' Function to open the file explorer to the file. '''
+    filePath = resourcePath(file)
+    if platform.system() == "Windows":
+        os.startfile(filePath)
+    elif platform.system() == "Darwin":
+        subprocess.call(["open", "-R", filePath])
+    else:
+        subprocess.Popen(["xdg-open", filePath])
+
+def copyFile(file):
+    ''' Function to copy the file to the destination. In this case, the desktop. '''
+    filePath = resourcePath(file)
+    # destinationPath = resourcePath(destination)
+    shutil.copy2(filePath, desktop)

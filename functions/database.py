@@ -125,6 +125,23 @@ def deleteRowWithID(connection: sql.Connection, cursor: sql.Cursor, tableName, i
     cursor.execute(sql, (id,))
     connection.commit()
 
+def login(cursor: sql.Cursor, username: str, password: str) -> list | None:
+    ''' Function to check if the username and password are correct.
+    Returns None if no match or A list containing the account ID, username, role (if applicable else None), and year group (if applicable, else None) of the user.
+    ie. whenderson000, woody123 -> (1, 'whenderson000', 'Staff', None)
+    ie. jjoseph553, joel123 -> (2, 'jjoseph553', None, '14')
+    '''
+    sql = f"""SELECT tbl_Accounts.accountID, tbl_Accounts.username, tbl_Staff.role, tbl_Classes.yearGroup FROM tbl_Accounts
+    LEFT JOIN tbl_Staff ON tbl_Accounts.accountID = tbl_Staff.accountID
+    LEFT JOIN tbl_Pupils ON tbl_Accounts.accountID = tbl_Pupils.accountID
+    LEFT JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID
+    WHERE tbl_Accounts.username=? AND tbl_Accounts.password=?"""
+
+    cursor.execute(sql, (username, password))
+    row = cursor.fetchone()
+    return row
+# print(login(sql.connect("/Users/joeljoseph/Documents/Projects/Coding Projects/Unit-5-NEA/Contents/TestDatabase.db").cursor(), "jjoseph553", "joel123"))
+
 def insertDataIntoEventsTable(connection: sql.Connection, cursor: sql.Cursor, data: list):
     ''' Function to insert data into the 'tbl_Events' table. '''
     sql = f"INSERT INTO tbl_Events(eventName, dateOfEvent, timeOfEvent, durationOfEvent, requestedBy, locationID, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -219,7 +236,7 @@ def updateMember(connection: sql.Connection, cursor: sql.Cursor, data: list, id)
 
 def createAccount(connection: sql.Connection, cursor: sql.Cursor, username: list[str]) -> int:
     ''' Function to create an account with given username and default password 'password'.
-    Returns the accountID of the created account. '''
+        Returns the accountID of the created account. '''
     sql = f"INSERT INTO tbl_Accounts(username, password) VALUES (?, 'password')"
     cursor.execute(sql, username)
     connection.commit()

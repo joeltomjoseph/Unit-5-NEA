@@ -7,7 +7,7 @@ import datetime
 import sqlite3 as sql
 
 import ui
-from functions import generalFunctions, validation, database #, soundBoardController
+from functions import generalFunctions, validation, database, soundBoardController
 
 class MainApp(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -42,21 +42,21 @@ class MainApp(tk.Tk):
 
         self.frames = {}
         # Initialise all the pages
-        for F in (LoginPage, FAQPage, UpcomingEventsPage, DocumentationPage, MemberInformationPage, ArchivePage, ConnectToSoundboardPage, TrainingMaterialsPage, SettingsPage, Dashboard):
+        for F in (LoginPage, FAQPage, UpcomingEventsPage, DocumentationPage, MemberandStaffInformationPage, ArchivePage, ConnectToSoundboardPage, TrainingMaterialsPage, SettingsPage, Dashboard):
             frame = F(contentFrame, self)
             self.frames[F] = frame
             frame.grid(row=0, column=0, sticky='nsew')
         
         # Show the login page
-        # frame = LoginPage(contentFrame, self)
-        # self.frames[LoginPage] = frame
-        # frame.grid(row=0, column=0, sticky='nsew')
-        # self.showFrame(LoginPage)
-        
-        frame = Dashboard(contentFrame, self)
-        self.frames[Dashboard] = frame
+        frame = LoginPage(contentFrame, self)
+        self.frames[LoginPage] = frame
         frame.grid(row=0, column=0, sticky='nsew')
-        self.showFrame(Dashboard, resizeTo='1920x1080+0+0')
+        self.showFrame(LoginPage)
+        
+        # frame = Dashboard(contentFrame, self)
+        # self.frames[Dashboard] = frame
+        # frame.grid(row=0, column=0, sticky='nsew')
+        # self.showFrame(Dashboard, resizeTo='1920x1080+0+0')
     
     def showFrame(self, cont, resizeTo: str = None):
         ''' Show the frame for the given page name. If resizeTo is given, resize the window to the given dimensions. '''
@@ -65,6 +65,13 @@ class MainApp(tk.Tk):
             self.geometry(resizeTo)
         frame = self.frames[cont]
         frame.tkraise()
+
+    def updateAccessLevel(self, accessLevel: str, accountDetails: list):
+        ''' Update the access level of the user. Show the Dashboard, update the Logged in user label, and unbind the return key press event.'''
+        ui.ACCESS_LEVEL = accessLevel
+        self.showFrame(Dashboard, resizeTo='1920x1080+0+0')
+        self.frames[Dashboard].userLabel.configure(text=f'Logged in as: {accountDetails[1]} | Year {accountDetails[3]}') if accountDetails[3] else self.frames[Dashboard].userLabel.configure(text=f'Logged in as: {accountDetails[1]} | {accountDetails[2]}')
+        self.unbind('<Return>')
 
     def closeApplication(self):
         ''' Safely close lose the application. Close the database connection and then destroy the window. '''
@@ -75,9 +82,10 @@ class MainApp(tk.Tk):
             messagebox.showinfo('Error', 'Failed to close the application, this is likely due to something still. Please try again. ')
 
 class LoginPage(ui.PageStructure):
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller: MainApp):
         super().__init__(parent, controller)
-        
+        self.controller = controller
+        self.controller.bind('<Return>', self.login) # Bind the login function to the return key press event
         self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, relief='ridge')
         self.canvas.pack(side='top', fill="both", expand=True)
         
@@ -118,15 +126,19 @@ class LoginPage(ui.PageStructure):
         
         # Set up the login button
         controller.style.configure('Login.secondary.TButton', borderwidth=2, focusthickness=2, width=20)
-        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='Login.secondary.TButton', command=lambda: controller.showFrame(Dashboard, resizeTo='1920x1080+0+0'))
+        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='Login.secondary.TButton', command=self.login) #controller.showFrame(Dashboard, resizeTo='1920x1080+0+0'))
         self.loginButton.pack(pady=10)
 
         # Set up the canvas items; title and login form
         self.title = self.canvas.create_window(self.winfo_screenwidth()/2, (self.winfo_screenheight()/2)+100, anchor='center', window=self.titleLabel)
         self.frame = self.canvas.create_window(self.winfo_screenwidth()/2, self.winfo_screenheight()/2, anchor='center', window=self.canvasItemsFrame)
         self.canvas.bind('<Configure>', self.resizeCanvas) # Bind the resizeCanvas function to the canvas resizing event
+
+    def eventTest(self, event):
+        print('Event Test')
     
     def validationCallback(self, widget, validationRoutine):
+        ''' Callback function to validate the input in the given widget using the given validation routine. '''
         return validationRoutine(widget, widget.get())
         #return (controller.register(validationRoutine), widget, '%P')
 
@@ -152,12 +164,33 @@ class LoginPage(ui.PageStructure):
             self.passwordField.config(show="*")
             
     def forgottenPassword(self):
+        ''' Function to handle the forgotten password process. Open a new toplevel window. '''
         # TODO: Implement forgotten password functionality
         pass
     
-    def login(self):
-        # TODO: Implement login functionality
-        pass
+    def login(self, event=None):
+        ''' Function to handle the login process. Validate the username and password, then attempt to login, and set the access level depending on the details linked to the account. '''
+        if validation.validateUsername(self.usernameField, self.usernameField.get()) and validation.validatePassword(self.passwordField, self.passwordField.get()):
+            self.accountDetails = database.login(cursor, self.usernameField.get(), self.passwordField.get())
+
+            if self.accountDetails: # If the account exists and the password is correct
+                if self.accountDetails[3]: # If the account is for a student (there is a year group present)
+                    if self.accountDetails[3] in [13, 14]: # If the account is in Year 13/14 (Sixth Form)
+                        self.controller.updateAccessLevel('Senior', self.accountDetails)
+                        # ui.ACCESS_LEVEL = 'Senior'
+                        # self.controller.showFrame(Dashboard, resizeTo='1920x1080+0+0')
+                        # self.controller.frames[Dashboard].userLabel.configure(text=f'Logged in as: {self.accountDetails[1]} | Year {self.accountDetails[3]}')
+                        # self.controller.unbind('<Return>')
+                    else: # else the account is part of the junior school
+                        self.controller.updateAccessLevel('Junior', self.accountDetails)
+                else: # else the account is for a staff member
+                    if self.accountDetails[2] == 'Staff':
+                        self.controller.updateAccessLevel('Staff', self.accountDetails)
+                    elif self.accountDetails[2] == 'Admin' or self.accountDetails[0][3] == 'Head of the Team':
+                        self.controller.updateAccessLevel('Admin', self.accountDetails)
+            else:
+                messagebox.showerror('Login Failed', 'Invalid username or password')
+                return
 
 class Dashboard(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -189,7 +222,7 @@ class Dashboard(ui.PageStructure):
         self.documentationButton = ttk.Button(self.buttonFrame, text='View Documentation', style='dbButton.Outline.TButton', command=lambda: controller.showFrame(DocumentationPage))
         self.documentationButton.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
-        self.membersButton = ttk.Button(self.buttonFrame, text='Information about Members', style='dbButton.Outline.TButton', command=lambda: controller.showFrame(MemberInformationPage))
+        self.membersButton = ttk.Button(self.buttonFrame, text='Member and Staff Information', style='dbButton.Outline.TButton', command=lambda: controller.showFrame(MemberandStaffInformationPage))
         self.membersButton.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
 
         self.archiveButton = ttk.Button(self.buttonFrame, text='Archive', style='dbButton.Outline.TButton', command=lambda: controller.showFrame(ArchivePage))
@@ -212,13 +245,14 @@ class Dashboard(ui.PageStructure):
         self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='ItalicCaption.TLabel')
         self.userLabel.pack(side='left', expand=True)
 
-        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: PROTOTYPE', style='ItalicCaption.TLabel')
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.1', style='ItalicCaption.TLabel')
         self.versionLabel.pack(side='right', expand=True)
 
         self.timeLabel = ttk.Label(self.bottomFrame, text='RAHH', style='ItalicCaption.TLabel')
         self.timeLabel.pack(side='bottom', expand=True)
 
         self.time() # Call the time function to start updating the time at the bottom of the window
+        self.updatePage() # Call the updater function to start updating the page (e.g. upcoming events)
 
     # time function used to update the time at bottom of window every second
     def time(self):
@@ -227,6 +261,12 @@ class Dashboard(ui.PageStructure):
         self.timeLabel.configure(text = self.timeValue)
         # Calling the time function again after 1000ms (1 second)
         self.timeLabel.after(1000, self.time)
+
+    def updatePage(self):
+        # Update the upcoming events button text to show the latest events
+        self.upcomingEventsTextVar.set(f'Upcoming Events\n\n\n{database.getLatestEventsDetails(cursor)}')
+        # Call the updater function again after 10000ms (10 seconds)
+        self.after(10000, self.updatePage)
 
 class UpcomingEventsPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -254,12 +294,10 @@ class DocumentationPage(ui.PageStructure):
 
         self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
         self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.deleteButton = ttk.Button(self.controlsFrame, text='Delete', image=controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=None)
-        self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.saveButton = ttk.Button(self.controlsFrame, text='Save', image=controller.style.images['save'], compound='left', style='action.secondary.TButton', command=None)
-        self.saveButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.editButton = ttk.Button(self.controlsFrame, text='Edit', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
-        self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.openFileLocButton = ttk.Button(self.controlsFrame, text='Open File Location', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
+        self.openFileLocButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.exportButton.configure(state='disabled')
+        self.openFileLocButton.configure(state='disabled')
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
@@ -268,19 +306,30 @@ class DocumentationPage(ui.PageStructure):
         self.contentViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='') # and set the default content to be a pdf, this will be changed when a file is selected
         self.contentViewer.pack(side='top', fill='both', expand=True)
 
-class MemberInformationPage(ui.PageStructure):
+class MemberandStaffInformationPage(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
 
-        self.statisticsFrame = ttk.Frame(self, style='TFrame')
+        self.tabbedFrame = ttk.Notebook(self, style='TNotebook')
+        self.tabbedFrame.pack(side='top', fill='both', expand=True)
+
+        self.table = ui.MemberTableView(self.tabbedFrame, controller, connection, cursor, rowData=database.getAllMemberDetails(cursor), columnData=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+        self.tabbedFrame.add(self.table, text='Member Information')
+
+        self.statisticsFrame = ttk.Frame(self.tabbedFrame, style='TFrame')
         self.statisticsFrame.pack(side='top', fill='both', expand=True)
+        self.tabbedFrame.add(self.statisticsFrame, text='Member Statistics')
 
         self.statisticsLabel = ttk.Label(self.statisticsFrame, text='Statistics', style='ItalicCaption.TLabel')
         self.statisticsLabel.pack(padx=10, pady=10)
 
-        self.table = ui.MemberTableView(self, controller, connection, cursor, rowData=database.getAllMemberDetails(cursor), columnData=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+        self.staffFrame = ttk.Frame(self.tabbedFrame, style='TFrame')
+        self.staffFrame.pack(side='top', fill='both', expand=True)
+        self.tabbedFrame.add(self.staffFrame, text='Staff Information')
+
+        #self.staffTable = ui.MemberTableView(self.staffFrame, controller, connection, cursor, rowData=database.getAllStaffDetails(cursor), columnData=['Staff ID', 'First Name', 'Surname', 'Username', 'Email', 'Date Of Birth', 'House'])
 
 class ArchivePage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -300,12 +349,10 @@ class ArchivePage(ui.PageStructure):
 
         self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
         self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.deleteButton = ttk.Button(self.controlsFrame, text='Delete', image=controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=None)
-        self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.saveButton = ttk.Button(self.controlsFrame, text='Save', image=controller.style.images['save'], compound='left', style='action.secondary.TButton', command=None)
-        self.saveButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.editButton = ttk.Button(self.controlsFrame, text='Edit', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
-        self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.openFileLocButton = ttk.Button(self.controlsFrame, text='Open File Location', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
+        self.openFileLocButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.exportButton.configure(state='disabled')
+        self.openFileLocButton.configure(state='disabled')
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
@@ -318,18 +365,87 @@ class ConnectToSoundboardPage(ui.PageStructure):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
-        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
+        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
 
-        self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.pack(side='top', fill='both', expand=True)
+        self.infoFrame = ttk.Frame(self, style='TFrame')
+        self.infoFrame.place(relx=0, rely=0.1, relwidth=1, relheight=0.05, anchor='nw')
 
-        self.loginButton = ttk.Button(self.contentFrame, text='Connecting to Soundboard Time ;3', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        self.loginButton.pack()
+        self.infoLabel = ttk.Label(self.infoFrame, text=f'''Status: {"Connected to Qu-24" if soundBoardController.checkIfConnected(b'qu-24') else "Not Connected"}''', style='ItalicCaption.TLabel')
+        self.infoLabel.pack()
 
-        self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        self.label2.pack()
+        self.controlsFrame = ttk.Frame(self, style='TFrame')
+        self.controlsFrame.place(relx=0, rely=0.15, relwidth=0.5, relheight=0.85)
+        self.controlsFrame.grid_columnconfigure([0,1], weight=1, uniform='column')
+        self.controlsFrame.grid_rowconfigure([0,1,2], weight=1)
+
+        self.setupButton = ttk.Button(self.controlsFrame, text='Setup for Assembly', style='dbButton.Outline.TButton', command=lambda: self.setupForAssemblyCallback())
+        self.setupButton.grid(row=0, column=0, pady=10, padx=10, sticky='nsew')
+
+        self.startRecordingButton = ttk.Button(self.controlsFrame, text='Start Recording', style='start.success.TButton', command=lambda: soundBoardController.audioRecording.recordAudio())
+        self.startRecordingButton.grid(row=1, column=0, pady=10, padx=10, sticky='nsew')
+
+        self.endRecordingButton = ttk.Button(self.controlsFrame, text='End Recording', style='end.danger.TButton', command=lambda: soundBoardController.audioRecording.stopRecording())
+        self.endRecordingButton.grid(row=2, column=0, pady=10, padx=10, sticky='nsew')
+
+        self.unmuteFrame = ttk.Frame(self, style='TFrame')
+        self.unmuteFrame.place(relx=0.5, rely=0.15, relwidth=0.5, relheight=0.85)
+        self.unmuteFrame.grid_columnconfigure([0,1], weight=1, uniform='column')
+        self.unmuteFrame.grid_rowconfigure([0,1,2], weight=1)
+
+        self.unmuteCh1Button = ttk.Button(self.unmuteFrame, text='Unmute Channel 1', style='dbButton.Outline.TButton', command=lambda: soundBoardController.sendOutput(soundBoardController.controlMuteChannel(1, False)))
+        self.unmuteCh1Button.grid(row=0, column=0, pady=10, padx=10, sticky='nsew')
+
+        self.unmuteCh2Button = ttk.Button(self.unmuteFrame, text='Unmute Channel 2', style='dbButton.Outline.TButton', command=lambda: soundBoardController.sendOutput(soundBoardController.controlMuteChannel(2, False)))
+        self.unmuteCh2Button.grid(row=1, column=0, pady=10, padx=10, sticky='nsew')
+
+        self.unmuteCh3Button = ttk.Button(self.unmuteFrame, text='Unmute Channel 3', style='dbButton.Outline.TButton', command=lambda: soundBoardController.sendOutput(soundBoardController.controlMuteChannel(3, False)))
+        self.unmuteCh3Button.grid(row=2, column=0, pady=10, padx=10, sticky='nsew')
+
+        self.unmuteCh23Button = ttk.Button(self.unmuteFrame, text='Unmute Channel 23', style='dbButton.Outline.TButton', command=lambda: soundBoardController.sendOutput(soundBoardController.controlMuteChannel(23, False)))
+        self.unmuteCh23Button.grid(row=0, column=1, pady=10, padx=10, sticky='nsew')
+
+        self.unmuteST3Button = ttk.Button(self.unmuteFrame, text='Unmute ST3', style='dbButton.Outline.TButton', command=lambda: soundBoardController.sendOutput(soundBoardController.controlMuteChannel('ST3', False)))
+        self.unmuteST3Button.grid(row=1, column=1, pady=10, padx=10, sticky='nsew')
+
+        self.unmuteLRButton = ttk.Button(self.unmuteFrame, text='Unmute Master', style='dbButton.Outline.TButton', command=lambda: soundBoardController.sendOutput(soundBoardController.controlMuteChannel('LR', False)))
+        self.unmuteLRButton.grid(row=2, column=1, pady=10, padx=10, sticky='nsew')
+
+        self.updatePage() # Call the updater function to start updating the page (e.g. status of connection to soundboard and buttons)
+
+    def updatePage(self):
+        if soundBoardController.checkIfConnected(b'qu-24'):
+            self.infoLabel.configure(text=f'''Status: Connected to Qu-24''')
+            # for all widgets in the controlsFrame and unmuteFrame, enable them
+            widgets = self.controlsFrame.winfo_children()
+            widgets.extend(self.unmuteFrame.winfo_children())
+            for widget in widgets:
+                if isinstance(widget, ttk.Button):
+                    widget.configure(state='enabled')
+            
+        else:
+            self.infoLabel.configure(text=f'''Status: Not Connected''')
+            # for all widgets in the controlsFrame and unmuteFrame, disable them so they can't be clicked
+            widgets = self.controlsFrame.winfo_children()
+            widgets.extend(self.unmuteFrame.winfo_children())
+            for widget in widgets:
+                if isinstance(widget, ttk.Button):
+                    widget.configure(state='disabled')
+        # Call the updater function again after 1000ms (1 second)
+        self.infoLabel.after(1000, self.updatePage)
+
+    def setupForAssemblyCallback(self):
+        ''' Callback function to setup the soundboard for assembly, sends multiple midi messages to the soundboard control more than one channel at a time. '''
+        groupsOfMessages = [
+            soundBoardController.controlMuteChannel('LR', False), # UNMUTE LR MASTER
+            soundBoardController.controlMuteChannel(1, False), # UNMUTE CHANNEL 1
+            soundBoardController.controlMuteChannel(23, False), # UNMUTE CHANNEL 23
+            soundBoardController.setVolume('LR', 0), # SET LR MASTER FADER TO 0dB
+            soundBoardController.setVolume(1, 0), # SET CHANNEL 1 FADER TO 0dB
+            soundBoardController.setVolume(23, 0) # SET CHANNEL 23 FADER TO 0dB
+        ]
+
+        for message in groupsOfMessages:
+            soundBoardController.sendOutput(message)
 
 class TrainingMaterialsPage(ui.PageStructure):
     def __init__(self, parent, controller):
@@ -349,12 +465,10 @@ class TrainingMaterialsPage(ui.PageStructure):
 
         self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
         self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.deleteButton = ttk.Button(self.controlsFrame, text='Delete', image=controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=None)
-        self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.saveButton = ttk.Button(self.controlsFrame, text='Save', image=controller.style.images['save'], compound='left', style='action.secondary.TButton', command=None)
-        self.saveButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.editButton = ttk.Button(self.controlsFrame, text='Edit', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
-        self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.openFileLocButton = ttk.Button(self.controlsFrame, text='Open File Location', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
+        self.openFileLocButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.exportButton.configure(state='disabled')
+        self.openFileLocButton.configure(state='disabled')
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')

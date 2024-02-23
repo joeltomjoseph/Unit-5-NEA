@@ -31,6 +31,8 @@ COLOURS = {
     "active": "#f5f5f5"
 }
 
+ACCESS_LEVEL = '' # Determines what functionality is available to the user. Set after the user logs in.
+
 # Fonts
 BODY_FONT = 'TkTextFont 15'
 HEADING_FONT = 'TkHeadingFont 38 bold'
@@ -77,7 +79,11 @@ def createWidgetStyles(style: ttk.Style):
     style.configure('accordion.primary.Treeview', font=BODY_FONT, rowheight=30)
     style.configure('accordion.primary.Treeview.Item', indicatorsize=2)
     style.configure('file.TLabel', foreground='black', font=('TkTextFont 18 bold'))
-    style.configure('action.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=10)
+    style.configure('action.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=15)
+
+    # Connecting to Soundboard
+    style.configure('start.success.TButton', font=BODY_FONT, justify='center', wraplength=350)
+    style.configure('end.danger.TButton', font=BODY_FONT, justify='center', wraplength=350)
 
 def createImages() -> dict:
     ''' Creates a dictionary of all (excluding a few) images created as PhotoImages in the images folder. These Photoimages can be reused when needed. '''
@@ -236,15 +242,18 @@ class MenuBar(ttk.Frame):
 
 class updatedTableview(Tableview):
     ''' Overrides the base Tableview class to allow for customisation of the tableview.
-    This changes the _build_search_frame function to include more controls such as an Add and Edit button. '''
+    This changes the _build_search_frame function to include more controls such as an Add, Edit and Delete button. '''
     def __init__(self, master=None, controller=None, *args, **kwargs):
             self.controller = controller
             super().__init__(master, *args, **kwargs)
+
+            self.view.configure(selectmode='browse', takefocus=False) # Set the selectmode to browse so only one row can be selected at a time
+            self.view.bind('<<TreeviewSelect>>', self.updateButtons) # Bind the TreeviewSelect event to the updateButtons function to update the state of the buttons when a row is selected
     
     def _build_search_frame(self):
         """Build the search frame containing the search widgets. This
         frame is only created if `searchable=True` when creating the
-        widget.
+        widget. Modified to include extra buttons for controls.
         """
         frame = ttk.Frame(self, padding=5)
         frame.pack(fill='x', side='top')
@@ -256,12 +265,22 @@ class updatedTableview(Tableview):
         # Added extra buttons for controls
         self.deleteButton = ttk.Button(frame, text='Delete', image=self.controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=self.master.deleteField)
         self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.deleteButton.configure(state='disabled') # Set the delete button to be disabled by default
         self.addButton = ttk.Button(frame, text='Add', image=self.controller.style.images['add'], compound='left', style='action.secondary.TButton', command=self.master.addField)
         self.addButton.pack(side='right', fill='both', padx=10, pady=10)
         self.editButton = ttk.Button(frame, text='Edit', image=self.controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=self.master.editField)
         self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.editButton.configure(state='disabled') # Set the edit button to be disabled by default
 
         ttk.Button(frame, text="⎌", command=self.reset_table, style="symbol.Link.TButton").pack(side='right', padx=5, pady=5)
+
+    def updateButtons(self, event):
+        ''' Update the state of the buttons based on the row that is selected. '''
+        row = self.view.focus()
+
+        if row:
+            self.deleteButton.configure(state='normal')
+            self.editButton.configure(state='normal')
 
 class EventsTableView(ttk.Frame):
     ''' Class to create the tableview, allowing the user to view the data in a table format. '''
@@ -275,6 +294,7 @@ class EventsTableView(ttk.Frame):
 
         self.table = updatedTableview(self, self.controller, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
         self.table.configure(style='t.primary.Treeview')
+        self.table.bind
         self.table.pack(side='top', fill='both', expand=True)
     
     def deleteField(self):
@@ -616,7 +636,7 @@ class Accoridon(ttk.Treeview):
         super().__init__(parent, **kwargs)
 
         self.column('#0', stretch=True, minwidth=100)
-        self.configure(style='accordion.primary.Treeview', show='tree')
+        self.configure(style='accordion.primary.Treeview', show='tree', selectmode='browse')
         self.tag_configure('directory', font=BOLD_CAPTION_FONT) # Set the font for the directory tags
         self.tag_bind('file', '<Double-Button-1>', self.onFileClick) # Bind the double click event to the file tags
         
@@ -682,6 +702,11 @@ class Accoridon(ttk.Treeview):
                 self.master.contentViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=filePath) # Create a new pdf viewer
                 self.master.contentViewer.pack(side='top', fill='both', expand=True)
                 self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
+
+                self.master.exportButton.configure(state='normal') # Enable the export button
+                self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
+                self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
             except Exception as e:
                 print(e)
 
@@ -695,12 +720,26 @@ class Accoridon(ttk.Treeview):
                 self.master.contentViewer.pack(side='top', fill='both', expand=True)
                 self.master.contentViewer.load_video(filePath) # Load the video
                 self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
+
+                self.master.exportButton.configure(state='normal') # Enable the export button
+                self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
+                self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
             except Exception as e:
                 print(e)
 
         if item.endswith('.docx'): # If the file is a word document
             try:
-                pass
+                self.master.contentViewer.destroy() # Destroy the current contentViewer
+                self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None # Reset the display_msg, frame and text variables
+                self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
+
+                self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
+
+                self.master.exportButton.configure(state='normal') # Enable the export button
+                self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
+                self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
             except Exception as e:
                 print(e)
 

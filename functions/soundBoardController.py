@@ -2,7 +2,7 @@ import mido
 import time
 from collections import deque
 
-from functions import soundBoardRecording as ar
+from functions import soundBoardRecording as audioRecording
 
 '''
 inport = mido.get_input_names()
@@ -53,30 +53,36 @@ FADER MESSAGE (Change volume of a fader - remember to unmute first to hear) - ty
 BN, 63, CH,     BN, 62, 17,     BN, 06, VA      BN, 26, 07
 '''
 
-groupsOfMessages = [
-    [mido.Message('note_on', channel=0, note=103, velocity=63), mido.Message('note_on', channel=0, note=103, velocity=0)], # UNMUTE LR MASTER
-    [mido.Message('control_change', channel=0, control=99, value=103), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=98), mido.Message('control_change', channel=0, control=38, value=7)], # SET LR MASTER FADER TO 0
-    [mido.Message('note_on', channel=0, note=32, velocity=63), mido.Message('note_on', channel=0, note=32, velocity=0)], # UNMUTE CHANNEL 1
-    [mido.Message('control_change', channel=0, control=99, value=32), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=98), mido.Message('control_change', channel=0, control=38, value=7)] # SET CHANNEL 1 FADER TO 0dB
-    ] #TODO change this into a collections.deque() and then pop the first item off the list and send it, then pop the next item off the list and send it, etc.
+messageQueue = deque() # create this when a connection is made to the QU-24
+
+def checkIfConnected(searchTerm: str):
+    ''' Function to check if the QU-24 is connected. '''
+    pyaudioInterface = audioRecording.pyaudio.PyAudio()
+
+    for i in range(pyaudioInterface.get_device_count()):
+        device = pyaudioInterface.get_device_info_by_index(i)
+        name = device['name'].encode('utf-8')
+        #print(f"Index: {i} - {name}, Input CHs: {device['maxInputChannels']}, Output CHs: {device['maxOutputChannels']}")
+
+        if name.lower().find(searchTerm) >= 0 and device['maxInputChannels'] > 0:
+            return True
+    return False
 
 def readInput():
-    ''' Function to read input from the QU-24 and print it to the console. For debugging purposes. '''
+    ''' Function to read input from the QU-24 and print it to the console. For debugging purposes. Can also be used for readouts from the QU-24. '''
     with mido.open_input('QU-24 MIDI Out') as inport:
         for message in inport:
             print(f"{message}")
 
-def sendOutput(): #TODO alter this to take in a queue of messages and then send them
+def sendOutput(message: list[mido.Message]):
     ''' Function to send output to the QU-24. '''
     with mido.open_output('QU-24 MIDI In') as outport:
-        for group in groupsOfMessages:
-            for message in group:
-                #time.sleep(userMinimumTimeBetweenCues)
-                outport.send(message)
+        for midi in message:
+            outport.send(midi)
             #time.sleep(1)
 
-def controlMuteChannel(channel, mute: bool = False) -> mido.Message:
-    ''' Function to unmute a channel. If mute is True, then mute the channel. '''
+def controlMuteChannel(channel, mute: bool = False) -> list[mido.Message]:
+    ''' Function to control the mute of a channel. If mute is True, then mute the channel. '''
     extraChannelLookup = {
         'ST1':64,
         'ST2':65,
@@ -97,7 +103,7 @@ def controlMuteChannel(channel, mute: bool = False) -> mido.Message:
     else:
         return [mido.Message('note_on', channel=0, note=channel, velocity=63), mido.Message('note_on', channel=0, note=channel, velocity=0)]
 
-def setVolume(channel, volume: int) -> mido.Message:
+def setVolume(channel, volume: int) -> list[mido.Message]:
     ''' Function to set the volume of a channel. 
     VOLUME LEVELS for FADERS (dBu)
     +10 = 127, +5 = 114, 0 = 98, -5 = 79, -10 = 63, -15 = 54, -20 = 47, -25 = 39, -30 = 31, -35 = 23, -40 = 16, -45 = 12, -inf = 0
@@ -122,7 +128,7 @@ def setVolume(channel, volume: int) -> mido.Message:
 
     return [mido.Message('control_change', channel=0, control=99, value=channel), mido.Message('control_change', channel=0, control=98, value=23), mido.Message('control_change', channel=0, control=6, value=volume), mido.Message('control_change', channel=0, control=38, value=7)]
 
-readInput()
+#readInput()
 #ar.listAudioDevices()
 #ar.recordAudio()
 #sendOutput()

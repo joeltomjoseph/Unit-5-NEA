@@ -38,7 +38,7 @@ def recordAudio():
         sample_format = pyaudio.paInt24  # 24 bits per sample, as per the QU-24
         channels = 32 # 32 channels of audio, as per the QU-24      #p.get_device_info_by_index(deviceIndex)['maxInputChannels']
         fs = 48000  # Record at 48000 samples per second, as per the QU-24
-        seconds = 10 # Number of seconds to record when not using continuous recording
+        maxSeconds = 1000 # Max recording time in seconds
         global stopFlag; stopFlag = False # Global Flag to control continuous recording, controllable outside the function
         filename = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S") + ".wav" # Filename for the recorded audio is the current date and time
         filePath = resourcePath('Contents/Recordings' + filename) # Filepath for the recorded audio
@@ -56,7 +56,7 @@ def recordAudio():
 
                 frames.append(filteredData) # Append the filtered data to the frames array
                 
-                if stopFlag or len(frames) > int(fs / chunk * 100): # if the stopFlag is True or the length of frames is greater than 100 seconds stop recording
+                if stopFlag or len(frames) > int(fs / chunk * maxSeconds): # if the stopFlag is True or the length of frames is greater than max recording length stop recording
                     break
             
             # for i in range(0, int(fs / chunk * seconds)): #Might have to change to while loop for continuous recording until exception

@@ -65,7 +65,10 @@ def checkIfConnected(searchTerm: str):
         #print(f"Index: {i} - {name}, Input CHs: {device['maxInputChannels']}, Output CHs: {device['maxOutputChannels']}")
 
         if name.lower().find(searchTerm) >= 0 and device['maxInputChannels'] > 0:
+            pyaudioInterface.terminate()
             return True
+    pyaudioInterface.terminate()
+    # return True # For testing purposes, return True
     return False
 
 def readInput():
@@ -132,6 +135,7 @@ def setVolume(channel, volume: int) -> list[mido.Message]:
 #ar.listAudioDevices()
 #ar.recordAudio()
 #sendOutput()
+# print(checkIfConnected(b'qu-24'))
 
 '''
 Try to use multithreading to allow simultaneous read/write but might not be needed so :/

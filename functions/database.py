@@ -140,26 +140,49 @@ def login(cursor: sql.Cursor, username: str, password: str) -> list | None:
     cursor.execute(sql, (username, password))
     row = cursor.fetchone()
     return row
-# print(login(sql.connect("/Users/joeljoseph/Documents/Projects/Coding Projects/Unit-5-NEA/Contents/TestDatabase.db").cursor(), "jjoseph553", "joel123"))
+# print(login(sql.connect("/Users/joeljoseph/Documents/Projects/Coding Projects/Unit-5-NEA/Contents/TestDatabase.db").cursor(), "dbyrne702", "Agsags123"))
 
 def insertDataIntoEventsTable(connection: sql.Connection, cursor: sql.Cursor, data: list):
     ''' Function to insert data into the 'tbl_Events' table. '''
+    memberSetupIDs = data.pop(5)
     sql = f"INSERT INTO tbl_Events(eventName, dateOfEvent, timeOfEvent, durationOfEvent, requestedBy, locationID, requirements) VALUES (?, ?, ?, ?, ?, ?, ?)"
     cursor.execute(sql, data)
     connection.commit()
 
+    setupGroupsData = [(cursor.lastrowid, memberID) for memberID in memberSetupIDs]
+    sql = f"INSERT INTO tbl_SetupGroups(eventID, pupilID) VALUES (?, ?)"
+    cursor.executemany(sql, setupGroupsData)
+    connection.commit()
+
 def updateEvent(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
-    ''' Function to update an event in the 'tbl_Events' table. '''
+    ''' Function to update an event in the 'tbl_Events' table along with the SetupGroups table. '''
+    memberSetupIDs = data.pop(5)
     sql = f"UPDATE tbl_Events SET eventName=?, dateOfEvent=?, timeOfEvent=?, durationOfEvent=?, requestedBy=?, locationID=?, requirements=? WHERE eventID={id}"
     cursor.execute(sql, data)
     connection.commit()
 
+    sql = f"DELETE FROM tbl_SetupGroups WHERE eventID={id}"
+    cursor.execute(sql)
+    connection.commit()
+
+    setupGroupsData = [(id, memberID) for memberID in memberSetupIDs]
+    sql = f"INSERT INTO tbl_SetupGroups(eventID, pupilID) VALUES (?, ?)"
+    cursor.executemany(sql, setupGroupsData)
+    connection.commit()
+
 def getLatestEventsDetails(cursor: sql.Cursor) -> str:
     ''' Function to get the details of the latest 3 events. Gets relevant details to be displayed on the dashboard. '''
-    sql = f'''SELECT tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, tbl_Locations.nameOfLocation, tbl_Events.requirements
-        FROM tbl_Events INNER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
-        INNER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
-        WHERE tbl_Events.dateOfEvent >= DATE() LIMIT 3; '''
+    sql = f'''SELECT tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, group_concat(tbl_Pupils.firstName || ' ' || tbl_Pupils.surname || ' ' || tbl_Classes.yearGroup || tbl_Classes.registrationClass, ', '), tbl_Locations.nameOfLocation, tbl_Events.requirements
+        FROM tbl_Events
+        LEFT OUTER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
+        LEFT OUTER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
+        LEFT OUTER JOIN tbl_SetupGroups ON tbl_SetupGroups.eventID = tbl_Events.eventID
+        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID
+		LEFT OUTER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID 
+        WHERE tbl_Events.dateOfEvent >= DATE()
+        GROUP by tbl_Events.eventID
+        ORDER BY tbl_Events.dateOfEvent ASC
+        LIMIT 3; '''
     cursor.execute(sql)
     rows = cursor.fetchall()
     # formatted = f'''{*rows[0],}\n{*rows[1],}\n{*rows[2],}'''
@@ -175,15 +198,16 @@ def getLatestEventsDetails(cursor: sql.Cursor) -> str:
 
 def getAllEventsDetails(cursor: sql.Cursor) -> list:
     ''' Function to get the details of all events. Gets relevant details to be displayed on the Upcoming Events Page. '''
-    sql = f'''SELECT tbl_Events.eventID, tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, tbl_Locations.nameOfLocation, tbl_Events.requirements
-        FROM tbl_Events INNER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
-        INNER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID; '''
+    sql = f'''SELECT tbl_Events.eventID, tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, group_concat(tbl_Pupils.firstName || ' ' || tbl_Pupils.surname || ' ' || tbl_Classes.yearGroup || tbl_Classes.registrationClass, ', '), tbl_Locations.nameOfLocation, tbl_Events.requirements
+        FROM tbl_Events 
+        LEFT OUTER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
+        LEFT OUTER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
+        LEFT OUTER JOIN tbl_SetupGroups ON tbl_SetupGroups.eventID = tbl_Events.eventID
+        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID
+		LEFT OUTER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID 
+		GROUP by tbl_Events.eventID;'''
     cursor.execute(sql)
     rows = cursor.fetchall()
-
-    # cursor.execute('''SELECT eventID, pupilID FROM tbl_SetupGroups
-    #                INNER JOIN tbl_Events ON tbl_SetupGroups.eventID = tbl_Events.eventID
-    #                INNER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID;''')
     return rows
 
 def getStaffNamesandIDs(cursor: sql.Cursor) -> list:
@@ -234,10 +258,30 @@ def updateMember(connection: sql.Connection, cursor: sql.Cursor, data: list, id)
     cursor.execute(sql, data)
     connection.commit()
 
+def getAllStaffDetails(cursor: sql.Cursor) -> list:
+    ''' Function to get the details of all staff members. Gets relevant details to be displayed on the Staff Page. '''
+    sql = f'''SELECT tbl_Staff.staffID, tbl_Staff.firstName, tbl_Staff.surname, tbl_Accounts.username, tbl_Staff.role, tbl_Staff.staffEmail
+        FROM tbl_Staff INNER JOIN tbl_Accounts ON tbl_Staff.accountID = tbl_Accounts.accountID; '''
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    return rows
+
+def insertDataIntoStaffTable(connection: sql.Connection, cursor: sql.Cursor, data: list):
+    ''' Function to insert data into the 'tbl_Staff' table. '''
+    sql = f"INSERT INTO tbl_Staff(firstName, surname, accountID, role, staffEmail) VALUES (?, ?, ?, ?, ?)"
+    cursor.execute(sql, data)
+    connection.commit()
+
+def updateStaff(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
+    ''' Function to update a staff member in the 'tbl_Staff' table. '''
+    sql = f"UPDATE tbl_Staff SET firstName=?, surname=?, accountID=?, role=?, staffEmail=? WHERE staffID={id}"
+    cursor.execute(sql, data)
+    connection.commit()
+
 def createAccount(connection: sql.Connection, cursor: sql.Cursor, username: list[str]) -> int:
-    ''' Function to create an account with given username and default password 'password'.
+    ''' Function to create an account with given username and default password 'Password1'.
         Returns the accountID of the created account. '''
-    sql = f"INSERT INTO tbl_Accounts(username, password) VALUES (?, 'password')"
+    sql = f"INSERT INTO tbl_Accounts(username, password) VALUES (?, 'Password1')"
     cursor.execute(sql, username)
     connection.commit()
 
@@ -251,6 +295,3 @@ def getAccountsAndIDs(cursor: sql.Cursor) -> list:
 
     formattedRows = [f'{record[0]}: {record[1]}' for record in rows] # ie. ['1: Smith', '2: Doe', . . . ] this allows id and name to be split easily for displaying in the combobox easily and commiting to the database easily
     return formattedRows
-
-#connection = sql.connect("TestDatabase.db")
-#cursor = connection.cursor()

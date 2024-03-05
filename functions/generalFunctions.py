@@ -4,6 +4,7 @@ import sys
 import platform
 import subprocess
 import shutil
+import smtplib, ssl
 
 if platform.system() == "Windows": # If the system is Windows, get the desktop directory from the USERPROFILE environment variable
     desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop') # Get the desktop directory
@@ -60,3 +61,21 @@ def copyFile(file):
     filePath = resourcePath(file)
     # destinationPath = resourcePath(destination)
     shutil.copy2(filePath, desktop)
+
+def sendEmail():
+    ''' Function to send an email. '''
+    port = 465
+    smtpServer = "smtp.gmail.com"
+    sender = 'emailaddress@gmail.com'
+    receiver = input("Type your email address and press enter: ")
+    password = 'ags-cp123'
+
+    message = ''' here '''
+
+    with smtplib.SMTP_SSL(smtpServer, port) as server:
+        server.login(sender, password)
+        try:
+            server.sendmail(sender, receiver, message)
+            print ("Successfully sent email")
+        except Exception as e:
+            print ("Error: unable to send email")

@@ -228,12 +228,16 @@ class MenuBar(ttk.Frame):
         self.titleLabel.pack(side="left", padx=10, pady=5)
 
         # Create close button
-        closeButton = ttk.Button(self, text="Close", image=controller.style.images['logout'], compound='left', command=self.quit, style='Close.secondary.TButton')
-        closeButton.pack(side="right", padx=10, pady=5)
+        self.closeButton = ttk.Button(self, text="Close", image=controller.style.images['logout'], compound='left', command=self.quit, style='Close.secondary.TButton')
+        self.closeButton.pack(side="right", padx=10, pady=5)
+
+        # Create Logout button
+        self.logoutButton = ttk.Button(self, text="Logout", image=controller.style.images['logout'], compound='left', command=lambda: controller.updateAccessLevel(None, None), style='Close.secondary.TButton')
+        self.logoutButton.pack(side="right", padx=10, pady=5)
 
         # Create FAQ/Help button
-        helpButton = ttk.Button(self, text="FAQ", image=controller.style.images['help'], compound='left', command=lambda: controller.showFrame(FAQPage), style='Close.secondary.TButton')
-        helpButton.pack(side="right", padx=10, pady=5)
+        self.helpButton = ttk.Button(self, text="FAQ", image=controller.style.images['help'], compound='left', command=lambda: controller.showFrame(FAQPage), style='Close.secondary.TButton')
+        self.helpButton.pack(side="right", padx=10, pady=5)
 
         if lastPage:
             # Create back button
@@ -245,7 +249,7 @@ class updatedTableview(Tableview):
     This changes the _build_search_frame function to include more controls such as an Add, Edit and Delete button. '''
     def __init__(self, master=None, controller=None, *args, **kwargs):
             self.controller = controller
-            super().__init__(master, *args, **kwargs)
+            super().__init__(master, autoalign=False, *args, **kwargs)
 
             self.view.configure(selectmode='browse', takefocus=False) # Set the selectmode to browse so only one row can be selected at a time
             self.view.bind('<<TreeviewSelect>>', self.updateButtons) # Bind the TreeviewSelect event to the updateButtons function to update the state of the buttons when a row is selected
@@ -268,6 +272,7 @@ class updatedTableview(Tableview):
         self.deleteButton.configure(state='disabled') # Set the delete button to be disabled by default
         self.addButton = ttk.Button(frame, text='Add', image=self.controller.style.images['add'], compound='left', style='action.secondary.TButton', command=self.master.addField)
         self.addButton.pack(side='right', fill='both', padx=10, pady=10)
+        self.addButton.configure(state='disabled') # Set the add button to be disabled by default
         self.editButton = ttk.Button(frame, text='Edit', image=self.controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=self.master.editField)
         self.editButton.pack(side='right', fill='both', padx=10, pady=10)
         self.editButton.configure(state='disabled') # Set the edit button to be disabled by default
@@ -278,9 +283,10 @@ class updatedTableview(Tableview):
         ''' Update the state of the buttons based on the row that is selected. '''
         row = self.view.focus()
 
-        if row:
+        if row and ACCESS_LEVEL in ['Admin', 'Staff']: # If a row is selected and the user is an admin or Staff, enable the buttons
             self.deleteButton.configure(state='normal')
             self.editButton.configure(state='normal')
+            self.addButton.configure(state='normal')
 
 class EventsTableView(ttk.Frame):
     ''' Class to create the tableview, allowing the user to view the data in a table format. '''
@@ -307,7 +313,7 @@ class EventsTableView(ttk.Frame):
                 # print(data)
                 database.deleteRowWithID(self.connection, self.cursor, 'tbl_Events', 'eventID', data[0])
 
-                self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements']) # rebuild the table with the updated data
+                self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
         
     def addField(self):
         ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
@@ -341,6 +347,20 @@ class EventsTableView(ttk.Frame):
         eventRequestedByEntry.state(['readonly'])
         eventRequestedByEntry.pack()
 
+        ttk.Label(self.eventForm.formFrame, text="Setup By").pack()
+        eventSetupByEntry = ttk.Menubutton(self.eventForm.formFrame, text='Assign Members', style='outline.TButton')
+        eventSetupByEntry.pack(pady=5, padx=20)
+        eventSetupByEntry.menu = tk.Menu(eventSetupByEntry, tearoff=0)
+        eventSetupByEntry['menu'] = eventSetupByEntry.menu
+        # for loop to create a checkbutton for each member in db and also a var for each checkbutton to store the value
+        eventSetupByEntry.menu.vars = []
+        for user in database.getAllMemberDetails(self.cursor):
+            eventSetupByEntry.menu.vars.append(tk.StringVar(master=eventSetupByEntry.menu))
+            eventSetupByEntry.menu.add_checkbutton(label=f'{user[1]} {user[2]} {user[4]}', onvalue=user[0], offvalue='', variable=eventSetupByEntry.menu.vars[-1])
+
+        # self.testB = ttk.Button(self.eventForm.formFrame, text='Test', style='outline.TButton', command=lambda: print([var.get() for var in eventSetupByEntry.menu.vars]))
+        # self.testB.pack(pady=5, padx=20)
+
         ttk.Label(self.eventForm.formFrame, text="Location").pack()
         eventLocationEntry = ttk.Combobox(self.eventForm.formFrame, values=[f'{location[0]} {location[1]}' for location in locationValues]) # unpack the values so they are formatted correctly
         eventLocationEntry.state(['readonly'])
@@ -361,7 +381,7 @@ class EventsTableView(ttk.Frame):
 
         Messagebox.show_info('Event Added Successfully', 'Success')
         
-        self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements']) # rebuild the table with the updated data
+        self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
 
         self.eventForm.destroy() # destroy the popup window
 
@@ -374,8 +394,9 @@ class EventsTableView(ttk.Frame):
             staffValues = [staff.split(': ') for staff in database.getStaffNamesandIDs(self.cursor)] # [['1', 'Henderson'], ['2', 'Campbell-Nesbitt'], ['3', 'Byrne'], ['4', 'Dark']]
             locationValues = [location.split(': ') for location in database.getLocationsandIDs(self.cursor)] # [['1', 'Stinson Hall'], ['2', 'Sports Hall'], ['3', 'Conference Room']]
 
-            data[5] = [staff for staff in staffValues if staff[1] == data[5]][0] # replace the staff name with the id and name of the staff member ie. 'Henderson' -> ['1', 'Henderson'] 
-            data[6] = [location for location in locationValues if location[1] == data[6]][0] # replace the name of location with the id and name of the location ie. 'Stinson Hall' -> ['1', 'Stinson Hall']
+            data[5] = [staff for staff in staffValues if staff[1] == data[5]][0] # replace the staff name with the id and name of the staff member ie. 'Henderson' -> ['1', 'Henderson']
+            data[6] = [member for member in data[6].split(', ')] # split the string of members into a list of individual members
+            data[7] = [location for location in locationValues if location[1] == data[7]][0] # replace the name of location with the id and name of the location ie. 'Stinson Hall' -> ['1', 'Stinson Hall']
             # print(data)
 
             self.eventForm = GenericForm(self, self.controller, 'Update an Event/Assembly', '600x700') # Create a new popup window for the form
@@ -412,16 +433,30 @@ class EventsTableView(ttk.Frame):
             eventRequestedByEntry.set(data[5]) # set the value of the combobox to the staff member that is in the selected row
             eventRequestedByEntry.pack()
 
+            ttk.Label(self.eventForm.formFrame, text="Setup By").pack()
+            eventSetupByEntry = ttk.Menubutton(self.eventForm.formFrame, text='Assign Members', style='outline.TButton')
+            eventSetupByEntry.state(['readonly'])
+            eventSetupByEntry.pack(pady=5, padx=20)
+            eventSetupByEntry.menu = tk.Menu(eventSetupByEntry, tearoff=0)
+            eventSetupByEntry['menu'] = eventSetupByEntry.menu
+            # for loop to create a checkbutton for each member in db and also a var for each checkbutton
+            eventSetupByEntry.menu.vars = []
+            for user in database.getAllMemberDetails(self.cursor):
+                eventSetupByEntry.menu.vars.append(tk.StringVar(master=eventSetupByEntry.menu))
+                eventSetupByEntry.menu.add_checkbutton(label=f'{user[1]} {user[2]} {user[4]}', onvalue=user[0], offvalue='', variable=eventSetupByEntry.menu.vars[-1])
+                if f'{user[1]} {user[2]} {user[4]}' in data[6]:
+                    eventSetupByEntry.menu.vars[-1].set(user[0]) # if the member is in the list of members for the event, set the checkbutton to be checked
+
             ttk.Label(self.eventForm.formFrame, text="Location").pack()
             eventLocationEntry = ttk.Combobox(self.eventForm.formFrame, values=[f'{location[0]} {location[1]}' for location in locationValues]) #[location[1] for location in locationValues]
             eventLocationEntry.state(['readonly'])
-            # eventLocationEntry.insert(0, data[6])
-            eventLocationEntry.set(f'{data[6][0]} {data[6][1]}')
+            # eventLocationEntry.insert(0, data[7])
+            eventLocationEntry.set(f'{data[7][0]} {data[7][1]}')
             eventLocationEntry.pack()
 
             ttk.Label(self.eventForm.formFrame, text="Requirements").pack()
             eventRequirementsEntry = ttk.Entry(self.eventForm.formFrame)
-            eventRequirementsEntry.insert(0, data[7])
+            eventRequirementsEntry.insert(0, data[8])
             eventRequirementsEntry.pack()
 
             self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='action.secondary.TButton', command=lambda: self.edit(id=data[0]))
@@ -435,7 +470,7 @@ class EventsTableView(ttk.Frame):
 
         Messagebox.show_info('Event Updated Successfully', 'Success')
         
-        self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Location', 'Requirements']) # rebuild the table with the updated data
+        self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
 
         self.eventForm.destroy() # destroy the popup window
 
@@ -530,7 +565,7 @@ class MemberTableView(ttk.Frame):
             accountValues = [account.split(': ') for account in database.getAccountsAndIDs(self.cursor)] # ie. [['1', 'jjoseph553'], ['2', 'bjohnston123']]
 
             data[3] = [account for account in accountValues if account[1] == data[3]][0] # replace the name with the id and username of the account
-            data[4] = [cls for cls in classValues if cls[1] == data[4]][0] # replace the name with the id and name of the staff member
+            data[4] = [cls for cls in classValues if cls[1] == data[4]][0] # replace the name with the id and name of the class
             # print(data)
 
             self.eventForm = GenericForm(self, self.controller, 'Update Member Info', '600x700') # Create a new popup window for the form
@@ -591,6 +626,133 @@ class MemberTableView(ttk.Frame):
 
         self.eventForm.destroy()
 
+class StaffTableView(ttk.Frame):
+    ''' Class to create the tableview, allowing the user to view the data in a table format. '''
+    def __init__(self, parent, controller, connection, cursor, rowData, columnData, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.connection = connection
+        self.cursor = cursor
+        self.controller = controller
+
+        self.pack(side='top', fill='both', expand=True)
+
+        self.table = updatedTableview(self, self.controller, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
+        self.table.configure(style='t.primary.Treeview')
+        self.table.pack(side='top', fill='both', expand=True)
+    
+    def deleteField(self):
+        ''' Handles when the delete button is clicked - get the id of the row that is selected and delete it from the database. '''
+        row = self.table.view.focus() # get the row that is selected
+    
+        if row: # if a row is selected
+            if Messagebox.show_question('Are you sure you want to delete this Staff Member?', 'Delete Staff') == 'Yes':
+                data = self.table.view.item(row, 'values') # get the data from the row
+                # print(data)
+                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Staff', 'staffID', data[0])
+
+                self.table.build_table_data(rowdata=database.getAllStaffDetails(self.cursor), coldata=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
+        
+    def addField(self):
+        ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
+        self.eventForm = GenericForm(self, self.controller, 'Add a Staff Member', '600x700') # Create a new popup window for the form
+
+        self.title = ttk.Label(self.eventForm.titleFrame, text='Add an Staff Member', style='BoldCaption.TLabel')
+        self.title.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="First Name").pack()
+        firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+        firstNameEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Surname").pack()
+        surnameEntry = ttk.Entry(self.eventForm.formFrame)
+        surnameEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account with default password 'password'").pack()
+        usernameEntry = ttk.Entry(self.eventForm.formFrame)
+        usernameEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Role").pack()
+        classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Admin', 'Staff'])
+        classEntry.pack()
+
+        ttk.Label(self.eventForm.formFrame, text="Email").pack()
+        emailEntry = ttk.Entry(self.eventForm.formFrame)
+        emailEntry.pack()
+
+        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='action.secondary.TButton', command=self.submit)
+        self.submitButton.pack(side='left', padx=10, pady=10)
+
+    def submit(self):
+        ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
+        data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
+        #print(data)
+        data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'password' and update the value of data[2] to the accountID
+        database.insertDataIntoStaffTable(self.connection, self.cursor, data)
+
+        Messagebox.show_info('Staff Member Added Successfully', 'Success')
+        
+        self.table.build_table_data(rowdata=database.getAllStaffDetails(self.cursor), coldata=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
+
+        self.eventForm.destroy()
+
+    def editField(self):
+        ''' Handles when the edit button is clicked - open a new window to edit the details of the selected row and commit the changes to the database. '''
+        row = self.table.view.focus()
+        if row:
+            data = list(self.table.view.item(row, 'values'))
+
+            accountValues = [account.split(': ') for account in database.getAccountsAndIDs(self.cursor)] # ie. [['1', 'jjoseph553'], ['2', 'bjohnston123']]
+
+            data[3] = [account for account in accountValues if account[1] == data[3]][0] # replace the name with the id and username of the account
+            # print(data)
+
+            self.eventForm = GenericForm(self, self.controller, 'Update Staff Info', '600x700') # Create a new popup window for the form
+
+            self.title = ttk.Label(self.eventForm.titleFrame, text='Update Staff Info', style='BoldCaption.TLabel')
+            self.title.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="First Name").pack()
+            firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+            firstNameEntry.insert(0, data[1])
+            firstNameEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Surname").pack()
+            surnameEntry = ttk.Entry(self.eventForm.formFrame)
+            surnameEntry.insert(0, data[2])
+            surnameEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Username").pack()
+            usernameEntry = ttk.Entry(self.eventForm.formFrame)
+            usernameEntry.insert(0, data[3][0])
+            usernameEntry.configure(state='readonly')
+            usernameEntry.pack()
+            ttk.Label(self.eventForm.formFrame, text=data[3][1]).pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Role").pack()
+            classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Admin', 'Staff'])
+            classEntry.set(data[4])
+            classEntry.pack()
+
+            ttk.Label(self.eventForm.formFrame, text="Email").pack()
+            emailEntry = ttk.Entry(self.eventForm.formFrame)
+            emailEntry.insert(0, data[5])
+            emailEntry.pack()
+
+            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='action.secondary.TButton', command=lambda: self.edit(id=data[0]))
+            self.submitButton.pack(side='left', padx=10, pady=10)
+
+    def edit(self, id):
+        ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
+        data = self.eventForm.getData(self.eventForm.formFrame)
+        #print(data)
+        database.updateStaff(self.connection, self.cursor, data, id)
+
+        Messagebox.show_info('Staff Member Updated Successfully', 'Success')
+        
+        self.table.build_table_data(rowdata=database.getAllStaffDetails(self.cursor), coldata=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
+
+        self.eventForm.destroy()
+
 class GenericForm(tk.Toplevel):
     ''' Class to create a generic form that can be used for adding and editing data. '''
     def __init__(self, parent, controller, title, size, **kwargs):
@@ -615,7 +777,7 @@ class GenericForm(tk.Toplevel):
     def getData(self, frame: ttk.Frame) -> list:
         ''' Get the data from the entry widgets within a Frame and return it as a list. '''
         data = []
-        entries = [entry for entry in frame.winfo_children() if isinstance(entry, (ttk.Entry, ttk.Combobox, ttk.DateEntry))] # get all entry widgets in the frame
+        entries = [entry for entry in frame.winfo_children() if isinstance(entry, (ttk.Entry, ttk.Combobox, ttk.DateEntry, ttk.Menubutton))] # get all entry widgets in the frame
         
         for entry in entries:
             if isinstance(entry, ttk.Combobox): # if the widget is a combobox
@@ -623,11 +785,13 @@ class GenericForm(tk.Toplevel):
                     data.append(entry.get().split(' ')[0]) # only append the ID, ie. '1 Henderson' -> '1'
                 else: # if the first part of the string is not a digit
                     data.append(entry.get()) # append the whole string, ie. 'Henderson'
+            elif isinstance(entry, ttk.Menubutton): # if the widget is an Menubutton
+                data.append([var.get() for var in entry.menu.vars if var.get()]) # append the value of each checkbutton in the menu
             elif hasattr(entry, 'get'): # if the widget has a get method
                 data.append(entry.get())
             elif isinstance(entry, ttk.DateEntry): # if the widget is a DateEntry
                 data.append(entry.entry.get()) # get the entry component of the DateEntry widget
-        #print(data)
+        # print(data)
         return data
 
 class Accoridon(ttk.Treeview):
@@ -705,8 +869,9 @@ class Accoridon(ttk.Treeview):
 
                 self.master.exportButton.configure(state='normal') # Enable the export button
                 self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
-                self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
-                self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
+                if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
+                    self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                    self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
             except Exception as e:
                 print(e)
 
@@ -723,8 +888,9 @@ class Accoridon(ttk.Treeview):
 
                 self.master.exportButton.configure(state='normal') # Enable the export button
                 self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
-                self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
-                self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
+                if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
+                    self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                    self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
             except Exception as e:
                 print(e)
 
@@ -736,10 +902,11 @@ class Accoridon(ttk.Treeview):
 
                 self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
 
+                if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
+                    self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                    self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
                 self.master.exportButton.configure(state='normal') # Enable the export button
                 self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
-                self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
-                self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
             except Exception as e:
                 print(e)
 

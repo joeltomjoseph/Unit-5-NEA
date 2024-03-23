@@ -1,10 +1,14 @@
 import tkinter as tk
 from tkinter import messagebox, font
 import ttkbootstrap as ttk
+from ttkbootstrap.scrolled import ScrolledFrame
 from PIL import Image, ImageTk
 from tkPDFViewer2 import tkPDFViewer as tkPDF
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import datetime
 import sqlite3 as sql
+import threading
 
 import ui
 from functions import generalFunctions, validation, database, soundBoardController
@@ -42,7 +46,7 @@ class MainApp(tk.Tk):
 
         self.frames = {}
         # Initialise all the pages
-        for F in (LoginPage, FAQPage, UpcomingEventsPage, DocumentationPage, MemberandStaffInformationPage, ArchivePage, ConnectToSoundboardPage, TrainingMaterialsPage, SettingsPage, Dashboard):
+        for F in (LoginPage, UpcomingEventsPage, DocumentationPage, MemberandStaffInformationPage, ArchivePage, ConnectToSoundboardPage, TrainingMaterialsPage, SettingsPage, Dashboard):
             frame = F(contentFrame, self)
             self.frames[F] = frame
             frame.grid(row=0, column=0, sticky='nsew')
@@ -58,17 +62,20 @@ class MainApp(tk.Tk):
         # frame.grid(row=0, column=0, sticky='nsew')
         # self.showFrame(Dashboard, resizeTo='1920x1080+0+0')
     
-    def showFrame(self, cont, resizeTo: str = None):
-        ''' Show the frame for the given page name. If resizeTo is given, resize the window to the given dimensions. '''
+    def showFrame(self, cont, resizeTo: str = None, showFAQ: bool = False):
+        ''' Show the frame for the given page name. If `resizeTo` is given, resize the window to the given dimensions. If `showFAQ` is true, show the FAQ Toplevel window. '''
         if resizeTo:
             #self.state('zoomed')
             self.geometry(resizeTo)
+        if showFAQ:
+            FAQPage(cont, self)
+            return
         frame = self.frames[cont]
         frame.tkraise()
 
     def updateAccessLevel(self, accessLevel: str | None, accountDetails: list | None):
         ''' Update the access level of the user and change the functions available for them. Show the Dashboard, update the Logged in user label, and unbind the return key press event. 
-        If the access level is None, show the login page. '''
+        If the access level is `None`, show the login page. '''
         ui.ACCESS_LEVEL = accessLevel
 
         if accessLevel == None:
@@ -188,6 +195,7 @@ class LoginPage(ui.PageStructure):
             
     def forgottenPassword(self):
         ''' Function to handle the forgotten password process. Open a new toplevel window. '''
+        # https://stackoverflow.com/a/1103063 - Overview of process
         # TODO: Implement forgotten password functionality
         pass
     
@@ -271,17 +279,17 @@ class Dashboard(ui.PageStructure):
         self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='ItalicCaption.TLabel')
         self.userLabel.pack(side='left', expand=True)
 
-        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.2', style='ItalicCaption.TLabel')
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.3', style='ItalicCaption.TLabel')
         self.versionLabel.pack(side='right', expand=True)
 
-        self.timeLabel = ttk.Label(self.bottomFrame, text='RAHH', style='ItalicCaption.TLabel')
+        self.timeLabel = ttk.Label(self.bottomFrame, text='', style='ItalicCaption.TLabel')
         self.timeLabel.pack(side='bottom', expand=True)
 
         self.time() # Call the time function to start updating the time at the bottom of the window
         self.updatePage() # Call the updater function to start updating the page (e.g. upcoming events)
 
-    # time function used to update the time at bottom of window every second
     def time(self):
+        ''' Time function used to update the time at bottom of window every second '''
         # creating a formatted string to show the date and time
         self.timeValue = datetime.datetime.now().strftime("%d/%m/%y | %I:%M:%S %p")
         self.timeLabel.configure(text = self.timeValue)
@@ -289,6 +297,7 @@ class Dashboard(ui.PageStructure):
         self.timeLabel.after(1000, self.time)
 
     def updatePage(self):
+        ''' Refresh the upcoming events button every 10 seconds to ensure up to date information is displayed '''
         # Update the upcoming events button text to show the latest events
         self.upcomingEventsTextVar.set(f'Upcoming Events\n\n\n{database.getLatestEventsDetails(cursor)}')
         # Call the updater function again after 10000ms (10 seconds)
@@ -346,19 +355,96 @@ class MemberandStaffInformationPage(ui.PageStructure):
         self.tabbedFrame.add(self.MemberTable, text='Member Information')
 
         # Create the member statistics frame
-        self.statisticsFrame = ttk.Frame(self.tabbedFrame, style='TFrame')
+        self.statisticsFrame = ScrolledFrame(self.tabbedFrame, style='TFrame')
         self.statisticsFrame.pack(side='top', fill='both', expand=True)
-        self.tabbedFrame.add(self.statisticsFrame, text='Member Statistics')
+        self.tabbedFrame.add(self.statisticsFrame.container, text='Member Statistics')
 
-        self.statisticsLabel = ttk.Label(self.statisticsFrame, text='Statistics', style='ItalicCaption.TLabel')
-        self.statisticsLabel.pack(padx=10, pady=10)
+        self.showMostActiveMembers()
+        self.showPopularLocations()
+        self.showMostFrequentRequesters()
 
         # Create the staff information table
-        # self.staffFrame = ttk.Frame(self.tabbedFrame, style='TFrame')
-        # self.staffFrame.pack(side='top', fill='both', expand=True)
         self.staffTable = ui.StaffTableView(self.tabbedFrame, controller, connection, cursor, rowData=database.getAllStaffDetails(cursor), columnData=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
-
         self.tabbedFrame.add(self.staffTable, text='Staff Information')
+
+    def showMostActiveMembers(self):
+        ''' Query the database for the members who have set up the most events and create a bar graph showing the results. '''
+        self.heading = ttk.Label(self.statisticsFrame, text='Most Active Members (Top 10)', style='ItalicCaption.TLabel')
+        self.heading.pack(padx=10, pady=10)
+
+        # Query the database to get the number of times each member has taken an event
+        cursor.execute('''SELECT p.firstName || ' ' || p.surname || ' ' || c.yearGroup || c.registrationClass, COUNT(*) 
+                       FROM tbl_SetupGroups as sg 
+                       INNER JOIN tbl_Pupils as p ON sg.pupilID = p.memberID 
+                       INNER JOIN tbl_Classes as c ON p.classID = c.classID
+                       GROUP BY pupilID ORDER BY COUNT(*) DESC LIMIT 10''')
+        result = cursor.fetchall()
+
+        # Separate the Members and the count of events into their own lists
+        members = [row[0] for row in result]
+        eventCount = [row[1] for row in result]
+
+        # Create the figure and bar itself
+        self.figure = plt.Figure(figsize=(5, 4), dpi=100)
+        self.plot = self.figure.add_subplot(111)
+        self.plot.bar(members, eventCount, tick_label=members)
+
+        # Create the canvas to display the graph
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.statisticsFrame)
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+        self.canvas.draw()
+
+    def showPopularLocations(self):
+        ''' Query the database for information on the most popular locations and create a bar graph showing the results. '''
+        self.heading = ttk.Label(self.statisticsFrame, text='Most Popular Event Locations', style='ItalicCaption.TLabel')
+        self.heading.pack(padx=10, pady=10)
+
+        # Query the database to get the number of times each member has taken an event
+        cursor.execute('''SELECT l.nameOfLocation, COUNT(*) 
+                       FROM tbl_Events as e
+                       INNER JOIN tbl_Locations as l ON e.locationID = l.locationID
+                       GROUP BY e.locationID ORDER BY COUNT(*) DESC''')
+        result = cursor.fetchall()
+
+        # Separate the Members and the count of events into their own lists
+        locations = [row[0] for row in result]
+        locationCount = [row[1] for row in result]
+
+        # Create the figure and bar itself
+        self.figure = plt.Figure(figsize=(5, 4), dpi=100)
+        self.plot = self.figure.add_subplot(111)
+        self.plot.bar(locations, locationCount, tick_label=locations)
+
+        # Create the canvas to display the graph
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.statisticsFrame)
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+        self.canvas.draw()
+
+    def showMostFrequentRequesters(self):
+        ''' Query the database for the top requesters of SL, display the information in a graph '''
+        self.heading = ttk.Label(self.statisticsFrame, text='Most Frequent Event/Assembly Requesters', style='ItalicCaption.TLabel')
+        self.heading.pack(padx=10, pady=10)
+
+        # Query the database to get the number of times each member has taken an event
+        cursor.execute('''SELECT s.firstName || ' ' || s.surname, COUNT(*) 
+                       FROM tbl_Events AS e 
+                       INNER JOIN tbl_Staff AS s ON e.requestedBy = s.staffID 
+                       GROUP BY staffID ORDER BY COUNT(*) DESC LIMIT 10''')
+        result = cursor.fetchall()
+
+        # Separate the Members and the count of events into their own lists
+        staff = [row[0] for row in result]
+        staffCount = [row[1] for row in result]
+
+        # Create the figure and bar itself
+        self.figure = plt.Figure(figsize=(5, 4), dpi=100)
+        self.plot = self.figure.add_subplot(111)
+        self.plot.bar(staff, staffCount, tick_label=staff)
+
+        # Create the canvas to display the graph
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.statisticsFrame)
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+        self.canvas.draw()
 
 class ArchivePage(ui.PageStructure):
     def __init__(self, parent, controller: MainApp):
@@ -413,8 +499,15 @@ class ConnectToSoundboardPage(ui.PageStructure):
         self.startRecordingButton = ttk.Button(self.controlsFrame, text='Start Recording', style='start.success.TButton', command=lambda: self.startRecordingCallback())
         self.startRecordingButton.grid(row=1, column=0, pady=10, padx=10, sticky='nsew')
 
-        self.endRecordingButton = ttk.Button(self.controlsFrame, text='End Recording', style='end.danger.TButton', command=lambda: soundBoardController.audioRecording.stopRecording())
+        self.seconds, self.mins = 0, 0 # Create variables to store the seconds and minutes of the recording
+        self.recordingTimer = ttk.Label(self.controlsFrame, text='Press Start Recording to Begin', style='ItalicCaption.TLabel', justify='center') # Create a label to display the time of the recording
+        self.recordingTimer.grid(row=1, column=1, pady=10, padx=10)
+
+        self.endRecordingButton = ttk.Button(self.controlsFrame, text='End Recording', style='end.danger.TButton', command=lambda: self.endRecordingCallback())
         self.endRecordingButton.grid(row=2, column=0, pady=10, padx=10, sticky='nsew')
+
+        self.openRecordingsButton = ttk.Button(self.controlsFrame, text='Open Recordings Folder', style='dbButton.Outline.TButton', command=lambda: generalFunctions.showFileExplorer(generalFunctions.resourcePath('Contents/Recordings')))
+        self.openRecordingsButton.grid(row=2, column=1, pady=50, padx=50, sticky='nsew')
 
         self.unmuteFrame = ttk.Frame(self, style='TFrame')
         self.unmuteFrame.place(relx=0.5, rely=0.15, relwidth=0.5, relheight=0.85)
@@ -439,6 +532,8 @@ class ConnectToSoundboardPage(ui.PageStructure):
         self.unmuteLRButton = ttk.Button(self.unmuteFrame, text='Unmute Master', style='dbButton.Outline.TButton', command=lambda: self.toggleButtonFunctionality(self.unmuteLRButton, [soundBoardController.controlMuteChannel('LR', False), soundBoardController.controlMuteChannel('LR', True)]))
         self.unmuteLRButton.grid(row=2, column=1, pady=10, padx=10, sticky='nsew')
 
+        global isRecording
+        isRecording = False
         self.updatePage() # Call the updater function to start updating the page (e.g. status of connection to soundboard and buttons)
 
     def updatePage(self):
@@ -465,7 +560,7 @@ class ConnectToSoundboardPage(ui.PageStructure):
         self.after(1000, self.updatePage)
 
     def setupForAssemblyCallback(self):
-        ''' Callback function to setup the soundboard for assembly, sends multiple midi messages to the soundboard control more than one channel at a time. '''
+        ''' Callback function to setup the soundboard for assembly, sends multiple MIDI messages to the soundboard control more than one channel at a time. '''
         groupsOfMessages = [
             soundBoardController.controlMuteChannel('LR', False), # UNMUTE LR MASTER
             soundBoardController.controlMuteChannel(1, False), # UNMUTE CHANNEL 1
@@ -480,19 +575,51 @@ class ConnectToSoundboardPage(ui.PageStructure):
         
     def startRecordingCallback(self):
         ''' Callback function to start recording audio from the soundboard. '''
-        soundBoardController.controlMuteChannel('MTX1-2', False) # UNMUTE MTX1-2
-        soundBoardController.setVolume('MTX1-2', 98) # SET MTX1-2 FADER TO 0dB, routing audio to the USB B port
+        global isRecording, recordingThread
+        if not isRecording:
+            isRecording = True
+            soundBoardController.sendOutput(soundBoardController.controlMuteChannel('MTX1-2', False)) # UNMUTE MTX1-2
+            soundBoardController.sendOutput(soundBoardController.setVolume('MTX1-2', 127)) # SET MTX1-2 FADER TO 10dBu, routing audio to the USB B port
 
-        soundBoardController.audioRecording.recordAudio()
+            recordingThread = threading.Thread(target=soundBoardController.audioRecording.recordAudio) # Create a new thread to record audio, to prevent the GUI from freezing
+            recordingThread.start() # Start the recording thread
+
+            self.updateRecordingTimer() # Call the function to update the recording timer initially
+        
+    def updateRecordingTimer(self):
+        ''' Function to update the recording timer every second. '''
+        global isRecording
+        if isRecording:
+            self.seconds += 1
+            if self.seconds == 60:
+                self.mins += 1
+                self.seconds = 0
+            
+            self.recordingTimer.configure(text=f'Recording: {self.mins}:{self.seconds:02d}') # Update the recording timer text to show the current time
+            self.eventID = self.recordingTimer.after(1000, self.updateRecordingTimer) # Call the function again after 1000ms (1 second) and store the event ID to cancel the event later
+
+    def endRecordingCallback(self):
+        ''' Callback function to stop recording audio from the soundboard. Set the stop flag to True and wait for the recording thread to finish. '''
+        global isRecording, recordingThread
+        if isRecording:
+            isRecording = False
+            soundBoardController.audioRecording.stopFlag = True # Set the stop flag to True, breaking the loop in the recording thread
+            recordingThread.join() # Wait for the recording thread to finish
+
+            self.recordingTimer.after_cancel(self.eventID) # Cancel the event to update the recording timer
+            self.recordingTimer.configure(text='Recording Ended') # Update the recording timer text to show that the recording has ended
+            self.seconds, self.mins = 0, 0 # Reset the seconds and minutes variables
+
+            messagebox.showinfo("Recording Completed", "The audio has been saved in the Recordings Folder!")
 
     def toggleButtonFunctionality(self, button: ttk.Button, commands: list):
         ''' Function to toggle the functionality of a button between two commands ie. an unmute and mute button in one. '''
         if 'Unmute' in button['text']: # If the button is an unmute button
             button.configure(text=button['text'].replace('Unmute', 'Mute')) # Change the text to be a mute button
-            soundBoardController.sendOutput(commands[0]) # Send the mute command
+            soundBoardController.sendOutput(commands[0]) # Send the unmute command
         else:
             button.configure(text=button['text'].replace('Mute', 'Unmute')) # Change the text to be an unmute button
-            soundBoardController.sendOutput(commands[1])
+            soundBoardController.sendOutput(commands[1]) # Send the mute command
 
 class TrainingMaterialsPage(ui.PageStructure):
     def __init__(self, parent, controller: MainApp):
@@ -541,20 +668,36 @@ class SettingsPage(ui.PageStructure):
         self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
         self.label2.pack()
 
-class FAQPage(ui.PageStructure):
+class FAQPage(ttk.Toplevel):
     def __init__(self, parent, controller: MainApp):
-        super().__init__(parent, controller)
+        super().__init__(parent)
+        self.title('FAQ - Help')
+        self.geometry('820x600')
+        self.minsize(820, 600)
+        self.iconphoto(True, tk.PhotoImage(file=generalFunctions.resourcePath('Contents/images/ags.png')))
 
-        self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.pack(side='top', fill='both', expand=True)
+        self.mainFrame = ttk.Frame(self, style='TFrame')
+        self.mainFrame.place(relx=0.3, rely=0, relwidth=0.7, relheight=1, anchor='nw')
 
-        self.loginButton = ttk.Button(self.contentFrame, text='HMMM?? time', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        self.loginButton.pack()
+        data = { # Data for the accordion and main content
+            'General': 'This is the general section',
+            'Login Page': 'What is this?',
+            'Upcoming Events': 'What is this?',
+            'Dashboard': 'This is the dashboard',
+            'Member and Staff Information': 'This is the member and staff information',
+            'Archive': 'This is the archive',
+            'Connect to Soundboard': 'This is the connect to soundboard',
+            'Training Materials': 'This is the training materials',
+            'Settings': 'This is the settings',
+            'FAQ': 'This is the FAQ'
+        }
+        self.accordion = ui.FAQAccordion(self, controller=controller, data=data)
+        self.accordion.place(relx=0, rely=0, relwidth=0.3, relheight=1, anchor='nw')
 
-        self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        self.label2.pack()
+        self.titleLabel = ttk.Label(self.mainFrame, text='Click a Heading to view Details', style='file.TLabel')
+        self.titleLabel.place(relx=0.35, rely=0, relwidth=1, relheight=0.1, anchor='nw')
+        self.contentLabel = ttk.Label(self.mainFrame, text='', style='paragraph.TLabel', wraplength=700, justify='left', anchor='nw')
+        self.contentLabel.place(relx=0, rely=0.1, relwidth=1, relheight=0.9, anchor='nw')
 
 ''' Main Program '''
 #CONSTANTS

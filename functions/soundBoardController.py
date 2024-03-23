@@ -4,14 +4,13 @@ from collections import deque
 
 from functions import soundBoardRecording as audioRecording
 
-'''
-inport = mido.get_input_names()
-outport = mido.get_output_names()
-print(inport) # ['QU-24 MIDI Out', 'MIDI Control 1']
-print(outport) # ['MIDI Control 1', 'QU-24 MIDI In']
-'''
-#ioport = mido.open_ioport(port)
-#print(ioport.name)
+# inport = mido.get_input_names()
+# outport = mido.get_output_names()
+# print(inport) # ['QU-24 MIDI Out', 'MIDI Control 1']
+# print(outport) # ['MIDI Control 1', 'QU-24 MIDI In']
+
+# #ioport = mido.open_ioport(port)
+# #print(ioport.name)
 
 ''' ALL VALUES ARE IN HEX, MIDO RETURNS IN DECIMAL CONVERT LIL BRO
 N is MIDI Channel (0 based, always 0, unless using Custom layer with MIDI option)
@@ -53,9 +52,7 @@ FADER MESSAGE (Change volume of a fader - remember to unmute first to hear) - ty
 BN, 63, CH,     BN, 62, 17,     BN, 06, VA      BN, 26, 07
 '''
 
-messageQueue = deque() # create this when a connection is made to the QU-24
-
-def checkIfConnected(searchTerm: str):
+def checkIfConnected(searchTerm: str) -> bool:
     ''' Function to check if the QU-24 is connected. '''
     pyaudioInterface = audioRecording.pyaudio.PyAudio()
 
@@ -85,7 +82,7 @@ def sendOutput(message: list[mido.Message]):
             #time.sleep(1)
 
 def controlMuteChannel(channel, mute: bool = False) -> list[mido.Message]:
-    ''' Function to control the mute of a channel. If mute is True, then mute the channel. '''
+    ''' Function to control the mute of a channel. If `mute` is True, then mute the channel. '''
     extraChannelLookup = {
         'ST1':64,
         'ST2':65,
@@ -136,9 +133,3 @@ def setVolume(channel, volume: int) -> list[mido.Message]:
 #ar.recordAudio()
 #sendOutput()
 # print(checkIfConnected(b'qu-24'))
-
-'''
-Try to use multithreading to allow simultaneous read/write but might not be needed so :/
-Can write messages to txt file and then reread them in using mido.parse_string()
-can convert messages to hex with message.hex()
-'''

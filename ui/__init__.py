@@ -55,6 +55,7 @@ def createWidgetStyles(style: ttk.Style):
     style.configure('ItalicCaption.TLabel', font=ITALIC_CAPTION_FONT)
     style.configure('BoldCaption.TLabel', font=BOLD_CAPTION_FONT)
     style.configure('Entry.TLabel', font=TEXT_ENTRY_FONT)
+    style.configure('paragraph.TLabel', font=BODY_FONT, justify='left', wraplength=500)
 
     # Menu bar
     style.configure('mb.TFrame', background='#3D4B74')
@@ -78,7 +79,7 @@ def createWidgetStyles(style: ttk.Style):
     # Documentation
     style.configure('accordion.primary.Treeview', font=BODY_FONT, rowheight=30)
     style.configure('accordion.primary.Treeview.Item', indicatorsize=2)
-    style.configure('file.TLabel', foreground='black', font=('TkTextFont 18 bold'))
+    style.configure('file.TLabel', foreground='black', font=('TkTextFont 19 bold'))
     style.configure('action.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=15)
 
     # Connecting to Soundboard
@@ -236,7 +237,7 @@ class MenuBar(ttk.Frame):
         self.logoutButton.pack(side="right", padx=10, pady=5)
 
         # Create FAQ/Help button
-        self.helpButton = ttk.Button(self, text="FAQ", image=controller.style.images['help'], compound='left', command=lambda: controller.showFrame(FAQPage), style='Close.secondary.TButton')
+        self.helpButton = ttk.Button(self, text="FAQ", image=controller.style.images['help'], compound='left', command=lambda: controller.showFrame(controller, showFAQ = True), style='Close.secondary.TButton')
         self.helpButton.pack(side="right", padx=10, pady=5)
 
         if lastPage:
@@ -765,6 +766,10 @@ class GenericForm(tk.Toplevel):
         self.titleFrame = ttk.Frame(self)
         self.titleFrame.pack(side='top', fill='x')
 
+        self.icon = ImageTk.PhotoImage(Image.open(generalFunctions.resourcePath("Contents/images/ags.png")).resize((70, 70), Image.LANCZOS))
+        self.iconLabel = ttk.Label(self.titleFrame, image=self.icon) # Create a label with the image
+        self.iconLabel.pack(side='top')
+
         self.formFrame = ttk.Frame(self)
         self.formFrame.pack(side='top', expand=True)
 
@@ -909,6 +914,30 @@ class Accoridon(ttk.Treeview):
                 self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
             except Exception as e:
                 print(e)
+
+class FAQAccordion(ttk.Treeview):
+    ''' Class to create the FAQ accordion menu, allowing the user to see all the areas to view FAQ pages for. '''
+    def __init__(self, parent, controller, data, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.data = data
+
+        self.column('#0', stretch=True, minwidth=100)
+        self.configure(style='accordion.primary.Treeview', show='tree', selectmode='browse')
+        self.tag_configure('heading', font=BOLD_CAPTION_FONT) # Set the font for the directory tags
+        self.tag_bind('heading', '<Double-Button-1>', self.onFileClick) # Bind the double click event to the heading tags
+        
+        for key, value in self.data.items(): # Iterate through the data
+            self.insert('', 'end', text=key, tags='heading') # Insert the key as a heading tag
+        
+    def onFileClick(self, event):
+        ''' Handles when a heading is clicked - get the corresponding text of the heading and display it in the FAQ viewer '''
+        itemIID = event.widget.selection()[0] # Get the item that was clicked
+        item = event.widget.item(itemIID, 'text') # Get the text of the item that was clicked
+
+        text = self.data[item] # Get the text that corresponds to the clicked heading
+
+        self.master.titleLabel.configure(text=item) # Set the titleLabel to the text of the clicked heading
+        self.master.contentLabel.configure(text=text) # Set the contentLabel to the text that corresponds to the clicked heading
 
 # Adapted from https://github.com/PaulleDemon/tkVideoPlayer/blob/master/examples/sample_player.py
 class videoPlayer(ttk.Frame):

@@ -5,6 +5,7 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 from PIL import Image, ImageTk
 from tkVideoPlayer import TkinterVideo
+import docx2pdf
 import platform
 from pathlib import Path
 import datetime
@@ -32,6 +33,7 @@ COLOURS = {
 }
 
 ACCESS_LEVEL = '' # Determines what functionality is available to the user. Set after the user logs in.
+ACCOUNT_ID = '' # The ID of the user that is logged in. Set after the user logs in.
 
 # Fonts
 BODY_FONT = 'TkTextFont 15'
@@ -47,7 +49,7 @@ def createWidgetStyles(style: ttk.Style):
     style.configure('test.TFrame', background='red')
 
     # Default - Override all widgets
-    style.configure('.', font=(BODY_FONT)) # Used to fix the size of buttons created by default as they were too small
+    style.configure('.', font=(BODY_FONT)) # Used to set the size of buttons created by default as they were too small
 
     # Text
     style.configure('TLabel', font=BODY_FONT)
@@ -80,13 +82,18 @@ def createWidgetStyles(style: ttk.Style):
     style.configure('accordion.primary.Treeview', font=BODY_FONT, rowheight=30)
     style.configure('accordion.primary.Treeview.Item', indicatorsize=2)
     style.configure('file.TLabel', foreground='black', font=('TkTextFont 19 bold'))
-    style.configure('action.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=15)
+    style.configure('action.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=20, justify='center')
+    style.configure('action.secondary.Outline.TButton', foreground='black', font=('TkTextFont 15 bold'), width=20, justify='center')
+    style.map('action.secondary.Outline.TButton', foreground=[('selected', 'black')])
 
     # Connecting to Soundboard
     style.configure('start.success.TButton', font=BODY_FONT, justify='center', wraplength=350)
     style.configure('end.danger.TButton', font=BODY_FONT, justify='center', wraplength=350)
 
-def createImages() -> dict:
+    # Forms
+    style.configure('FormButton.secondary.TButton', foreground='black', font=('TkTextFont 15 bold'), width=10, justify='center')
+
+def createImages() -> dict[str, tk.PhotoImage]:
     ''' Creates a dictionary of all (excluding a few) images created as PhotoImages in the images folder. These Photoimages can be reused when needed. '''
     images = {}
     for file in Path(generalFunctions.resourcePath('./Contents/images')).iterdir():
@@ -152,7 +159,7 @@ class ToolTip:
 
 def createTooltip(widget: tk.Widget, text: str, onWidget: bool = False):
     ''' Initialise a tooltip with text that is shown when the user hovers over chosen widget.
-    If onWidget is True, the tooltip will be shown on the widget itself without the need to hover over it. '''
+    If `onWidget` is True, the tooltip will be shown on the widget itself without the need to hover over it. '''
     tool_tip = ToolTip(widget)
 
     if onWidget:
@@ -229,7 +236,7 @@ class MenuBar(ttk.Frame):
         self.titleLabel.pack(side="left", padx=10, pady=5)
 
         # Create close button
-        self.closeButton = ttk.Button(self, text="Close", image=controller.style.images['logout'], compound='left', command=self.quit, style='Close.secondary.TButton')
+        self.closeButton = ttk.Button(self, text="Close", image=controller.style.images['logout'], compound='left', command=controller.closeApplication, style='Close.secondary.TButton')
         self.closeButton.pack(side="right", padx=10, pady=5)
 
         # Create Logout button
@@ -248,46 +255,100 @@ class MenuBar(ttk.Frame):
 class updatedTableview(Tableview):
     ''' Overrides the base Tableview class to allow for customisation of the tableview.
     This changes the _build_search_frame function to include more controls such as an Add, Edit and Delete button. '''
-    def __init__(self, master=None, controller=None, *args, **kwargs):
+    def __init__(self, master=None, controller=None, eventPage: bool = False, *args, **kwargs):
             self.controller = controller
-            super().__init__(master, autoalign=False, *args, **kwargs)
+            super().__init__(master, autoalign=True, *args, **kwargs)
 
             self.view.configure(selectmode='browse', takefocus=False) # Set the selectmode to browse so only one row can be selected at a time
             self.view.bind('<<TreeviewSelect>>', self.updateButtons) # Bind the TreeviewSelect event to the updateButtons function to update the state of the buttons when a row is selected
-    
+
+            if eventPage:
+                self.view.bind('<<TreeviewSelect>>', self.updateEventPageButtons) # Bind the TreeviewSelect event to the pupilOnlyJoinSetupGroup function to update the state of the buttons when a row is selected
+
+    def autoalign_columns(self):
+        """Align the columns and headers based on the data type of the
+        values. All text/numbers is center-aligned. This
+        method will have no effect if there is no data in the tables.
+        Modified to center align all text and numbers."""
+        if len(self._tablerows) == 0:
+            return
+
+        values = self._tablerows[0]._values
+        for i, value in enumerate(values):
+            if str(value).isnumeric():
+                self.view.column(i, anchor='center')
+                self.view.heading(i, anchor='center')
+            else:
+                self.view.column(i, anchor='center')
+                self.view.heading(i, anchor='center')
+
     def _build_search_frame(self):
         """Build the search frame containing the search widgets. This
         frame is only created if `searchable=True` when creating the
         widget. Modified to include extra buttons for controls.
         """
-        frame = ttk.Frame(self, padding=5)
-        frame.pack(fill='x', side='top')
-        ttk.Label(frame, text="Search").pack(side='left', padx=5)
-        searchterm = ttk.Entry(frame, textvariable=self._searchcriteria)
+        self.frame = ttk.Frame(self, padding=5)
+        self.frame.pack(fill='x', side='top')
+        ttk.Label(self.frame, text="Search").pack(side='left', padx=5)
+        searchterm = ttk.Entry(self.frame, textvariable=self._searchcriteria)
         searchterm.pack(fill='x', side='left', expand=True)
         searchterm.bind("<Return>", self._search_table_data)
         searchterm.bind("<KP_Enter>", self._search_table_data)
         # Added extra buttons for controls
-        self.deleteButton = ttk.Button(frame, text='Delete', image=self.controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=self.master.deleteField)
+        self.deleteButton = ttk.Button(self.frame, text='Delete', image=self.controller.style.images['delete'], compound='left', style='action.secondary.TButton', command=self.master.deleteField)
         self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
         self.deleteButton.configure(state='disabled') # Set the delete button to be disabled by default
-        self.addButton = ttk.Button(frame, text='Add', image=self.controller.style.images['add'], compound='left', style='action.secondary.TButton', command=self.master.addField)
+        self.addButton = ttk.Button(self.frame, text='Add', image=self.controller.style.images['add'], compound='left', style='action.secondary.TButton', command=self.master.addField)
         self.addButton.pack(side='right', fill='both', padx=10, pady=10)
         self.addButton.configure(state='disabled') # Set the add button to be disabled by default
-        self.editButton = ttk.Button(frame, text='Edit', image=self.controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=self.master.editField)
+        self.editButton = ttk.Button(self.frame, text='Edit', image=self.controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=self.master.editField)
         self.editButton.pack(side='right', fill='both', padx=10, pady=10)
         self.editButton.configure(state='disabled') # Set the edit button to be disabled by default
+        # Added button for students only on event page
+        self.setupButton = ttk.Button(self.frame, text='Join/Leave Setup Group\nFor this Event', image=self.controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
 
-        ttk.Button(frame, text="⎌", command=self.reset_table, style="symbol.Link.TButton").pack(side='right', padx=5, pady=5)
+        self.removeFiltersButton = ttk.Button(self.frame, text="⎌", command=self.reset_table, style="symbol.Link.TButton")
+        self.removeFiltersButton.pack(side='right', padx=5, pady=5)
+        createTooltip(self.removeFiltersButton, 'Remove all Filters and Sorts applied')
 
     def updateButtons(self, event):
         ''' Update the state of the buttons based on the row that is selected. '''
         row = self.view.focus()
 
         if row and ACCESS_LEVEL in ['Admin', 'Staff']: # If a row is selected and the user is an admin or Staff, enable the buttons
+            self.removeFiltersButton.pack_configure(side='right', fill='both', padx=5, pady=5)
+            self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
+            self.addButton.pack(side='right', fill='both', padx=10, pady=10)
+            self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+
             self.deleteButton.configure(state='normal')
             self.editButton.configure(state='normal')
             self.addButton.configure(state='normal')
+    
+    def updateEventPageButtons(self, event):
+        ''' Update the state of the buttons based on the row that is selected if the user is a pupil. '''
+        row = self.view.focus()
+
+        if row and ACCESS_LEVEL in ['Admin', 'Staff']: # If a row is selected and the user is an admin or Staff, enable the buttons
+            self.setupButton.pack_forget()
+            self.removeFiltersButton.pack_configure(side='left', fill='both', padx=5, pady=5)
+            self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
+            self.addButton.pack(side='right', fill='both', padx=10, pady=10)
+            self.editButton.pack(side='right', fill='both', padx=10, pady=10)
+
+            self.deleteButton.configure(state='normal')
+            self.editButton.configure(state='normal')
+            self.addButton.configure(state='normal')
+        elif row and ACCESS_LEVEL in ['Senior', 'Junior']: # If the user is a Senior or Junior, remove the buttons for add, edit and delete and replace with a button to join the setup group
+            self.deleteButton.pack_forget()
+            self.editButton.pack_forget()
+            self.addButton.pack_forget()
+            self.setupButton.pack_forget()
+            
+            self.setupButton.configure(command=self.master.joinSetupGroup)
+            self.setupButton.pack(side='right', fill='both', padx=10, pady=10)
+            self.master.toggleButton.pack_configure(side='left',  fill='both', padx=10, pady=10)
+            self.removeFiltersButton.pack(side='left', fill='both', padx=5, pady=5)
 
 class EventsTableView(ttk.Frame):
     ''' Class to create the tableview, allowing the user to view the data in a table format. '''
@@ -299,11 +360,54 @@ class EventsTableView(ttk.Frame):
 
         self.pack(side='top', fill='both', expand=True)
 
-        self.table = updatedTableview(self, self.controller, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
+        self.table = updatedTableview(self, self.controller, eventPage=True, coldata=columnData, rowdata=rowData, paginated=True, searchable=True)
         self.table.configure(style='t.primary.Treeview')
-        self.table.bind
         self.table.pack(side='top', fill='both', expand=True)
+
+        # Add the toggle button to show all events
+        self.toggleButton = ttk.Checkbutton(self.table.frame, text='Show All Events', command=self.toggleEventVisibility)
+        self.toggleButton.pack(side='right',  fill='both', padx=10, pady=10)
+
+        self.currentTableState = database.getUpcomingEventsDetails # Set the current table state to show upcoming events
+
+    def toggleEventVisibility(self):
+        ''' Toggle the visibility of all events in the table. '''
+        if self.toggleButton.instate(['selected']):
+            self.currentTableState = database.getAllEventsDetails
+            self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements'])
+        else:
+            self.currentTableState = database.getUpcomingEventsDetails
+            self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements'])
     
+    def joinSetupGroup(self):
+        ''' Join (or leave) the setup group for the selected event and send an email to the user logged in as confirmation for joining. '''
+        row = self.table.view.focus()
+
+        if row:
+            data = list(self.table.view.item(row, 'values')) # get the data from the row
+
+            question = Messagebox.show_question('Are you sure you want to join/leave the setup group for this event?', 'Join/Leave Setup Group', buttons=['Cancel:secondary','Leave:danger','Join:success'])
+            if question == 'Join':
+                try:
+                    database.joinSetupGroup(self.connection, self.cursor, data[0], database.getUserID(self.cursor, ACCOUNT_ID))
+                    self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
+
+                    generalFunctions.sendEmail(database.getUserEmail(self.cursor, ACCOUNT_ID), f'Subject: Sound and Lighting: Setup Event\n\nYou have joined the setup group for the event `{data[1]}` on {data[2]} at {data[3]}.')
+                except database.sql.IntegrityError:
+                    #Messagebox.show_error('You are already a part of the setup group for this event.', 'Error')
+                    if Messagebox.show_question('You are already a part of the setup group for this event. Would you like to leave the setup group?', 'Error') == 'Yes':
+                        database.leaveSetupGroup(self.connection, self.cursor, data[0], database.getUserID(self.cursor, ACCOUNT_ID))
+
+                        self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements'])
+                except Exception as e:
+                    Messagebox.show_error(f'An error occurred: {e}', 'Error')
+            elif question == 'Leave':
+                try:
+                    database.leaveSetupGroup(self.connection, self.cursor, data[0], database.getUserID(self.cursor, ACCOUNT_ID))
+                    self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
+                except Exception as e:
+                    Messagebox.show_error(f'An error occurred: {e}', 'Error')
+
     def deleteField(self):
         ''' Handles when the delete button is clicked - get the id of the row that is selected and delete it from the database. '''
         row = self.table.view.focus() # get the row that is selected
@@ -314,7 +418,7 @@ class EventsTableView(ttk.Frame):
                 # print(data)
                 database.deleteRowWithID(self.connection, self.cursor, 'tbl_Events', 'eventID', data[0])
 
-                self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
+                self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
         
     def addField(self):
         ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
@@ -371,8 +475,8 @@ class EventsTableView(ttk.Frame):
         eventRequirementsEntry = ttk.Entry(self.eventForm.formFrame)
         eventRequirementsEntry.pack()
 
-        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='action.secondary.TButton', command=self.submit)
-        self.submitButton.pack(side='left', padx=10, pady=10)
+        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='FormButton.secondary.TButton', command=self.submit)
+        self.submitButton.pack(side='right', padx=10, pady=10)
 
     def submit(self):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
@@ -382,7 +486,7 @@ class EventsTableView(ttk.Frame):
 
         Messagebox.show_info('Event Added Successfully', 'Success')
         
-        self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
+        self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
 
         self.eventForm.destroy() # destroy the popup window
 
@@ -460,8 +564,8 @@ class EventsTableView(ttk.Frame):
             eventRequirementsEntry.insert(0, data[8])
             eventRequirementsEntry.pack()
 
-            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='action.secondary.TButton', command=lambda: self.edit(id=data[0]))
-            self.submitButton.pack(side='left', padx=10, pady=10)
+            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='FormButton.secondary.TButton', command=lambda: self.edit(id=data[0]))
+            self.submitButton.pack(side='right', padx=10, pady=10)
 
     def edit(self, id):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
@@ -471,7 +575,7 @@ class EventsTableView(ttk.Frame):
 
         Messagebox.show_info('Event Updated Successfully', 'Success')
         
-        self.table.build_table_data(rowdata=database.getAllEventsDetails(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
+        self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
 
         self.eventForm.destroy() # destroy the popup window
 
@@ -497,9 +601,9 @@ class MemberTableView(ttk.Frame):
             if Messagebox.show_question('Are you sure you want to delete this Member?', 'Delete Member') == 'Yes':
                 data = self.table.view.item(row, 'values') # get the data from the row
                 # print(data)
-                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Pupils', 'memberID', data[0])
+                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Pupils', 'pupilID', data[0])
 
-                self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+                self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Pupil ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
         
     def addField(self):
         ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
@@ -520,7 +624,7 @@ class MemberTableView(ttk.Frame):
         surnameEntry = ttk.Entry(self.eventForm.formFrame)
         surnameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account with default password 'password'").pack()
+        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account\nwith default password 'Password1'", justify='center').pack()
         usernameEntry = ttk.Entry(self.eventForm.formFrame)
         usernameEntry.pack()
 
@@ -540,19 +644,19 @@ class MemberTableView(ttk.Frame):
         houseEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Tower', 'Massereene', 'Tardree', 'Clotworthy'])
         houseEntry.pack()
 
-        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='action.secondary.TButton', command=self.submit)
-        self.submitButton.pack(side='left', padx=10, pady=10)
+        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='FormButton.secondary.TButton', command=self.submit)
+        self.submitButton.pack(side='right', padx=10, pady=10)
 
     def submit(self):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
         #print(data)
-        data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'password' and update the value of data[2] to the accountID
+        data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'Password1' and update the value of data[2] to the accountID
         database.insertDataIntoMemberTable(self.connection, self.cursor, data)
 
         Messagebox.show_info('Member Added Successfully', 'Success')
         
-        self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+        self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Pupil ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
 
         self.eventForm.destroy()
 
@@ -612,8 +716,8 @@ class MemberTableView(ttk.Frame):
             houseEntry.set(data[7])
             houseEntry.pack()
 
-            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='action.secondary.TButton', command=lambda: self.edit(id=data[0]))
-            self.submitButton.pack(side='left', padx=10, pady=10)
+            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='FormButton.secondary.TButton', command=lambda: self.edit(id=data[0]))
+            self.submitButton.pack(side='right', padx=10, pady=10)
 
     def edit(self, id):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
@@ -623,7 +727,7 @@ class MemberTableView(ttk.Frame):
 
         Messagebox.show_info('Member Updated Successfully', 'Success')
         
-        self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Member ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
+        self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Pupil ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
 
         self.eventForm.destroy()
 
@@ -655,7 +759,7 @@ class StaffTableView(ttk.Frame):
         
     def addField(self):
         ''' Handles when the add button is clicked - open a new window to enter details and commit new event to the database. '''
-        self.eventForm = GenericForm(self, self.controller, 'Add a Staff Member', '600x700') # Create a new popup window for the form
+        self.eventForm = GenericForm(self, self.controller, 'Add a Staff Member', '500x500') # Create a new popup window for the form
 
         self.title = ttk.Label(self.eventForm.titleFrame, text='Add an Staff Member', style='BoldCaption.TLabel')
         self.title.pack()
@@ -668,7 +772,7 @@ class StaffTableView(ttk.Frame):
         surnameEntry = ttk.Entry(self.eventForm.formFrame)
         surnameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account with default password 'password'").pack()
+        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account\nwith default password 'Password1'", justify='center').pack()
         usernameEntry = ttk.Entry(self.eventForm.formFrame)
         usernameEntry.pack()
 
@@ -680,14 +784,14 @@ class StaffTableView(ttk.Frame):
         emailEntry = ttk.Entry(self.eventForm.formFrame)
         emailEntry.pack()
 
-        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='action.secondary.TButton', command=self.submit)
-        self.submitButton.pack(side='left', padx=10, pady=10)
+        self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='FormButton.secondary.TButton', command=self.submit)
+        self.submitButton.pack(side='right', padx=10, pady=10)
 
     def submit(self):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
         #print(data)
-        data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'password' and update the value of data[2] to the accountID
+        data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'Password1' and update the value of data[2] to the accountID
         database.insertDataIntoStaffTable(self.connection, self.cursor, data)
 
         Messagebox.show_info('Staff Member Added Successfully', 'Success')
@@ -707,7 +811,7 @@ class StaffTableView(ttk.Frame):
             data[3] = [account for account in accountValues if account[1] == data[3]][0] # replace the name with the id and username of the account
             # print(data)
 
-            self.eventForm = GenericForm(self, self.controller, 'Update Staff Info', '600x700') # Create a new popup window for the form
+            self.eventForm = GenericForm(self, self.controller, 'Update Staff Info', '500x500') # Create a new popup window for the form
 
             self.title = ttk.Label(self.eventForm.titleFrame, text='Update Staff Info', style='BoldCaption.TLabel')
             self.title.pack()
@@ -739,8 +843,8 @@ class StaffTableView(ttk.Frame):
             emailEntry.insert(0, data[5])
             emailEntry.pack()
 
-            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='action.secondary.TButton', command=lambda: self.edit(id=data[0]))
-            self.submitButton.pack(side='left', padx=10, pady=10)
+            self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Update", style='FormButton.secondary.TButton', command=lambda: self.edit(id=data[0]))
+            self.submitButton.pack(side='right', padx=10, pady=10)
 
     def edit(self, id):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
@@ -777,7 +881,7 @@ class GenericForm(tk.Toplevel):
         self.buttonsFrame.pack(side='bottom', fill='x')
 
         self.closeButton = ttk.Button(self.buttonsFrame, text='Close', style='Close.secondary.TButton', command=self.destroy)
-        self.closeButton.pack(side='right', padx=10, pady=10)
+        self.closeButton.pack(side='left', padx=10, pady=10)
     
     def getData(self, frame: ttk.Frame) -> list:
         ''' Get the data from the entry widgets within a Frame and return it as a list. '''
@@ -798,6 +902,28 @@ class GenericForm(tk.Toplevel):
                 data.append(entry.entry.get()) # get the entry component of the DateEntry widget
         # print(data)
         return data
+
+class FileControlBar(ttk.Frame):
+    ''' Class to create the control bar for the file explorer pages (Documentation, Archive and Training Materials). '''
+    def __init__(self, parent, controller, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.controller = controller
+
+        self.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw') # Place the frame in the top right corner of the parent frame
+        # parent is used to assign these widgets as children of the parent frame, so they can be accessed by other classes (like the accordion menu) more easily
+        parent.contentName = ttk.Label(self, text='Click a File to View', style='file.TLabel') # Create a label to display the name of the file that is being viewed
+        parent.contentName.pack(side='left', padx=10, pady=20)
+
+        parent.exportButton = ttk.Button(self, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None) # Create a button to export the file
+        parent.exportButton.pack(side='right', fill='both', padx=10, pady=10)
+        createTooltip(parent.exportButton, 'Save the file to your desktop') # Create a tooltip for the export button
+
+        parent.openFileLocButton = ttk.Button(self, text='Open File Location', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None) # Create a button to open the file location
+        parent.openFileLocButton.pack(side='right', fill='both', padx=10, pady=10)
+        createTooltip(parent.openFileLocButton, 'Open the file location in File Explorer') # Create a tooltip for the open file location button
+
+        parent.exportButton.configure(state='disabled') # Disable the export button
+        parent.openFileLocButton.configure(state='disabled') # Disable the open file location button
 
 class Accoridon(ttk.Treeview):
     ''' Class to create the accordion menu, allowing the user to view the Options available '''
@@ -872,11 +998,12 @@ class Accoridon(ttk.Treeview):
                 self.master.contentViewer.pack(side='top', fill='both', expand=True)
                 self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
 
-                self.master.exportButton.configure(state='normal') # Enable the export button
-                self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
                 if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
                     self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
                     self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
+
+                self.master.exportButton.configure(state='normal') # Enable the export button
+                self.master.exportButton.configure(command=lambda: self.showMessageboxCallback(generalFunctions.copyFile(filePath))) # Set the export button to export the clicked file
             except Exception as e:
                 print(e)
 
@@ -891,29 +1018,46 @@ class Accoridon(ttk.Treeview):
                 self.master.contentViewer.load_video(filePath) # Load the video
                 self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
 
-                self.master.exportButton.configure(state='normal') # Enable the export button
-                self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
                 if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
                     self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
                     self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
-            except Exception as e:
-                print(e)
 
-        if item.endswith('.docx'): # If the file is a word document
-            try:
-                self.master.contentViewer.destroy() # Destroy the current contentViewer
-                self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None # Reset the display_msg, frame and text variables
-                self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
-
-                self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
-
-                if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
-                    self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
-                    self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
                 self.master.exportButton.configure(state='normal') # Enable the export button
-                self.master.exportButton.configure(command=lambda: generalFunctions.copyFile(filePath)) # Set the export button to export the clicked file
+                self.master.exportButton.configure(command=lambda: self.showMessageboxCallback(generalFunctions.copyFile(filePath))) # Set the export button to export the clicked file
             except Exception as e:
                 print(e)
+
+        if item.endswith('.docx'): # If the file is a word document, convert it to a pdf and display it in the pdf viewer
+            if Messagebox.show_question('Would you like to convert this Word Document to a PDF?', 'Convert Word Document') == 'Yes':
+                try:
+                    self.master.contentViewer.destroy() # Destroy the current contentViewer
+                    self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None # Reset the display_msg, frame and text variables
+                    self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
+
+                    try:
+                        docx2pdf.convert(filePath, generalFunctions.resourcePath('Contents/.temp'), hide_progress=True) # Convert the docx file to a pdf file inside the .temp folder
+                        pdfPath = generalFunctions.resourcePath(f'Contents/.temp/{item[:-5]}.pdf') # Create the filepath to the pdf file that was converted
+
+                        self.master.contentViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=pdfPath) # Create a new pdf viewer
+                        self.master.contentViewer.pack(side='top', fill='both', expand=True)
+                    except Exception as e:
+                        Messagebox.show_error('Error converting Word Document to PDF!\n\nYou will require Microsoft Word installed on this device to convert.', 'Error')
+
+                    self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
+
+                    if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
+                        self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                        self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
+
+                    self.master.exportButton.configure(state='normal') # Enable the export button
+                    self.master.exportButton.configure(command=lambda: self.showMessageboxCallback(generalFunctions.copyFile(filePath))) # Set the export button to export the clicked file
+                except Exception as e:
+                    print(e)
+            
+    def showMessageboxCallback(self, functionToExecute):
+        ''' Execute a function and show the message box with the result of the function. '''
+        lambda: functionToExecute() # Execute the function
+        Messagebox.show_info('File has been saved to your Destop!', 'File Exported Successfully')
 
 class FAQAccordion(ttk.Treeview):
     ''' Class to create the FAQ accordion menu, allowing the user to see all the areas to view FAQ pages for. '''
@@ -924,13 +1068,37 @@ class FAQAccordion(ttk.Treeview):
         self.column('#0', stretch=True, minwidth=100)
         self.configure(style='accordion.primary.Treeview', show='tree', selectmode='browse')
         self.tag_configure('heading', font=BOLD_CAPTION_FONT) # Set the font for the directory tags
-        self.tag_bind('heading', '<Double-Button-1>', self.onFileClick) # Bind the double click event to the heading tags
+        self.tag_bind('heading', '<Double-Button-1>', self.onClick) # Bind the double click event to the heading tags
         
         for key, value in self.data.items(): # Iterate through the data
             self.insert('', 'end', text=key, tags='heading') # Insert the key as a heading tag
         
-    def onFileClick(self, event):
+    def onClick(self, event):
         ''' Handles when a heading is clicked - get the corresponding text of the heading and display it in the FAQ viewer '''
+        itemIID = event.widget.selection()[0] # Get the item that was clicked
+        item = event.widget.item(itemIID, 'text') # Get the text of the item that was clicked
+
+        text = self.data[item] # Get the text that corresponds to the clicked heading
+
+        self.master.titleLabel.configure(text=item) # Set the titleLabel to the text of the clicked heading
+        self.master.contentLabel.configure(text=text) # Set the contentLabel to the text that corresponds to the clicked heading
+
+class SettingsAccordion(ttk.Treeview):
+    ''' Class to create the Settings accordion menu, allowing the user to see all the areas to view Settings pages for. On heading click, opens a frame with the settings for that area. '''
+    def __init__(self, parent, controller, data, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.data = data
+
+        self.column('#0', stretch=True, minwidth=100)
+        self.configure(style='accordion.primary.Treeview', show='tree', selectmode='browse')
+        self.tag_configure('heading', font=BOLD_CAPTION_FONT) # Set the font for the directory tags
+        self.tag_bind('heading', '<Double-Button-1>', self.onClick) # Bind the double click event to the heading tags
+        
+        for key, value in self.data.items(): # Iterate through the data
+            self.insert('', 'end', text=key, tags='heading') # Insert the key as a heading tag
+        
+    def onClick(self, event):
+        ''' Handles when a heading is clicked - get the corresponding frame of the heading and display it in the viewer '''
         itemIID = event.widget.selection()[0] # Get the item that was clicked
         item = event.widget.item(itemIID, 'text') # Get the text of the item that was clicked
 

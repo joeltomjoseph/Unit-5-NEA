@@ -89,6 +89,18 @@ def createSetupGroupsTable(cursor: sql.Cursor):
     );'''
     cursor.execute(sql)
 
+def populateLocationsTable(cursor: sql.Cursor):
+    ''' Function to populate the `tbl_Locations` table with default locations. '''
+    sql = "INSERT INTO tbl_Locations(nameOfLocation) VALUES ('Stinson Hall'), ('Sports Hall'), ('Conference Room');"
+    cursor.execute(sql)
+
+def populateClassesTable(cursor: sql.Cursor):
+    ''' Function to populate the `tbl_Classes` table with default classes. '''
+    for year in range(11, 15): # 11, 12, 13, 14
+        for regClass in ['S', 'T', 'E', 'P']:
+            sql = "INSERT INTO tbl_Classes(yearGroup, registrationClass) VALUES (?, ?);"
+            cursor.execute(sql, (year, regClass))
+
 def createAllTables(cursor: sql.Cursor):
     ''' Call all the functions to create the tables '''
     createAccountTable(cursor)
@@ -170,6 +182,18 @@ def updateEvent(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
     cursor.executemany(sql, setupGroupsData)
     connection.commit()
 
+def joinSetupGroup(connection: sql.Connection, cursor: sql.Cursor, eventID, memberID):
+    ''' Function to join a Senior/Junior pupil to a setup group. '''
+    sql = f"INSERT INTO tbl_SetupGroups(eventID, pupilID) VALUES (?, ?)"
+    cursor.execute(sql, (eventID, memberID))
+    connection.commit()
+
+def leaveSetupGroup(connection: sql.Connection, cursor: sql.Cursor, eventID, memberID):
+    ''' Function to leave a Senior/Junior pupil from a setup group. '''
+    sql = f"DELETE FROM tbl_SetupGroups WHERE eventID=? AND pupilID=?"
+    cursor.execute(sql, (eventID, memberID))
+    connection.commit()
+
 def getLatestEventsDetails(cursor: sql.Cursor) -> str:
     ''' Function to get the details of the latest 3 events. Gets relevant details to be displayed on the dashboard. '''
     sql = f'''SELECT tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, group_concat(tbl_Pupils.firstName || ' ' || tbl_Pupils.surname || ' ' || tbl_Classes.yearGroup || tbl_Classes.registrationClass, ', '), tbl_Locations.nameOfLocation, tbl_Events.requirements
@@ -185,15 +209,19 @@ def getLatestEventsDetails(cursor: sql.Cursor) -> str:
         LIMIT 3; '''
     cursor.execute(sql)
     rows = cursor.fetchall()
-    # formatted = f'''{*rows[0],}\n{*rows[1],}\n{*rows[2],}'''
-    if len(rows) == 3:
-        formatted = f'{" - ".join(str(i) for i in rows[0])}\n\n{" - ".join(str(i) for i in rows[1])}\n\n{" - ".join(str(i) for i in rows[2])}'
-    elif len(rows) == 2:
-        formatted = f'{" - ".join(str(i) for i in rows[0])}\n\n{" - ".join(str(i) for i in rows[1])}'
-    elif len(rows) == 1:
-        formatted = f'{" - ".join(str(i) for i in rows[0])}'
-    else:
-        formatted = "No events found."
+    
+    formatted = '' if len(rows) != 0 else "No events found."
+    for row in rows:
+        formatted += f'{row[0]} in the {row[6]}\n{row[1]} at {row[2]}\n{row[5]}\n\n'
+
+    # if len(rows) == 3:
+    #     formatted = f'{" - ".join(str(i) for i in rows[0])}\n\n{" - ".join(str(i) for i in rows[1])}\n\n{" - ".join(str(i) for i in rows[2])}'
+    # elif len(rows) == 2:
+    #     formatted = f'{" - ".join(str(i) for i in rows[0])}\n\n{" - ".join(str(i) for i in rows[1])}'
+    # elif len(rows) == 1:
+    #     formatted = f'{" - ".join(str(i) for i in rows[0])}'
+    # else:
+    #     formatted = "No events found."
     return formatted
 
 def getAllEventsDetails(cursor: sql.Cursor) -> list:
@@ -206,6 +234,22 @@ def getAllEventsDetails(cursor: sql.Cursor) -> list:
         LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID
 		LEFT OUTER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID 
 		GROUP by tbl_Events.eventID;'''
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    return rows
+
+def getUpcomingEventsDetails(cursor: sql.Cursor) -> list:
+    ''' Function to get the details of all upcoming events (After the current date). Gets relevant details to be displayed on the Upcoming Events Page. '''
+    sql = f'''SELECT tbl_Events.eventID, tbl_Events.eventName, tbl_Events.dateOfEvent, tbl_Events.timeOfEvent, tbl_Events.durationOfEvent, tbl_Staff.surname, group_concat(tbl_Pupils.firstName || ' ' || tbl_Pupils.surname || ' ' || tbl_Classes.yearGroup || tbl_Classes.registrationClass, ', '), tbl_Locations.nameOfLocation, tbl_Events.requirements
+        FROM tbl_Events 
+        LEFT OUTER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
+        LEFT OUTER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
+        LEFT OUTER JOIN tbl_SetupGroups ON tbl_SetupGroups.eventID = tbl_Events.eventID
+        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID
+		LEFT OUTER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID 
+		WHERE tbl_Events.dateOfEvent >= DATE()
+        GROUP by tbl_Events.eventID
+        ORDER BY tbl_Events.dateOfEvent ASC;'''
     cursor.execute(sql)
     rows = cursor.fetchall()
     return rows
@@ -295,3 +339,29 @@ def getAccountsAndIDs(cursor: sql.Cursor) -> list:
 
     formattedRows = [f'{record[0]}: {record[1]}' for record in rows] # ie. ['1: Smith', '2: Doe', . . . ] this allows id and name to be split easily for displaying in the combobox easily and commiting to the database easily
     return formattedRows
+
+def getUserID(cursor: sql.Cursor, accountID: int) -> int:
+    ''' Function to get the memberID of a user with a given accountID. '''
+    sql = f"SELECT memberID FROM tbl_Pupils WHERE accountID=?"
+    cursor.execute(sql, (accountID,))
+    row = cursor.fetchone()
+
+    if row == None:
+        sql = f"SELECT staffID FROM tbl_Staff WHERE accountID=?"
+        cursor.execute(sql, (accountID,))
+        row = cursor.fetchone()
+
+    return row[0]
+
+def getUserEmail(cursor: sql.Cursor, accountID: int) -> str:
+    ''' Function to get the email of a user with a given accountID. '''
+    sql = f"SELECT studentEmail FROM tbl_Pupils WHERE accountID=?"
+    cursor.execute(sql, (accountID,))
+    row = cursor.fetchone()
+
+    if row == None:
+        sql = f"SELECT staffEmail FROM tbl_Staff WHERE accountID=?"
+        cursor.execute(sql, (accountID,))
+        row = cursor.fetchone()
+
+    return row[0]

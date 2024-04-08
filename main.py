@@ -78,19 +78,20 @@ class MainApp(tk.Tk):
         If the access level is `None`, show the login page. '''
         ui.ACCESS_LEVEL = accessLevel
 
-        if accessLevel == None:
-            self.frames[LoginPage].usernameField.delete(0, 'end')
-            self.frames[LoginPage].passwordField.delete(0, 'end')
-            self.showFrame(LoginPage, resizeTo='1000x1000+250+0')
-            self.bind('<Return>', self.frames[LoginPage].login)
+        if accessLevel == None: # If the access level is None, show the login page
+            self.frames[LoginPage].usernameField.delete(0, 'end') # Clear the username field
+            self.frames[LoginPage].passwordField.delete(0, 'end') # Clear the password field
+            self.showFrame(LoginPage, resizeTo='1000x1000+250+0') # Show the login page
+            self.bind('<Return>', self.frames[LoginPage].login) # Bind the login function to the return key press event
 
-            widgets = self.frames[Dashboard].buttonFrame.winfo_children()
+            widgets = self.frames[Dashboard].buttonFrame.winfo_children() # Get all the widgets in the button frame on the Dashboard
             #widgets.extend(self.frames[Dashboard].eventFrame.winfo_children())
-            for widget in widgets:
+            for widget in widgets: # Loop through all the widgets (buttons) and enable them
                 if isinstance(widget, ttk.Button):
                     widget.configure(state='enabled')
             return
         
+        ui.ACCOUNT_ID = str(accountDetails[0]) # Get the ID of the user logged in with the given account details
         self.showFrame(Dashboard, resizeTo='1920x1080+0+0')
         self.frames[Dashboard].userLabel.configure(text=f'Logged in as: {accountDetails[1]} | Year {accountDetails[3]}') if accountDetails[3] else self.frames[Dashboard].userLabel.configure(text=f'Logged in as: {accountDetails[1]} | {accountDetails[2]}')
         self.unbind('<Return>')
@@ -106,10 +107,13 @@ class MainApp(tk.Tk):
             self.frames[Dashboard].trainingButton.configure(state='disabled')
 
     def closeApplication(self):
-        ''' Safely close lose the application. Close the database connection and then destroy the window. '''
+        ''' Safely close lose the application. Close the database connection, clear the .temp/ folder and then destroy the window. '''
         try:
-            self.destroy() # Destroy the window
+            self.quit() # Destroy the window
             connection.close() # Close the database connection
+
+            # Clear the .temp/ folder
+            generalFunctions.clearFolder('Contents/.temp')
         except:
             messagebox.showinfo('Error', 'Failed to close the application, this is likely due to something still running. Please try again. ')
 
@@ -158,8 +162,8 @@ class LoginPage(ui.PageStructure):
         self.forgottenPasswordButton.pack(pady=10)
         
         # Set up the login button
-        controller.style.configure('Login.secondary.TButton', borderwidth=2, focusthickness=2, width=20)
-        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='Login.secondary.TButton', command=self.login) #controller.showFrame(Dashboard, resizeTo='1920x1080+0+0'))
+        controller.style.configure('Login.secondary.TButton', borderwidth=2, focusthickness=2, width=20, foreground='black')
+        self.loginButton = ttk.Button(self.canvasItemsFrame, text="Login", style='Login.secondary.TButton', command=self.login)
         self.loginButton.pack(pady=10)
 
         # Set up the canvas items; title and login form
@@ -170,7 +174,6 @@ class LoginPage(ui.PageStructure):
     def validationCallback(self, widget, validationRoutine):
         ''' Callback function to validate the input in the given widget using the given validation routine. '''
         return validationRoutine(widget, widget.get())
-        #return (controller.register(validationRoutine), widget, '%P')
 
     def resizeImage(self, event):
         ''' Resize the background image to fit the canvas '''
@@ -194,17 +197,208 @@ class LoginPage(ui.PageStructure):
             self.passwordField.config(show="*")
             
     def forgottenPassword(self):
-        ''' Function to handle the forgotten password process. Open a new toplevel window. '''
+        ''' Function to handle the forgotten password process. Open a new toplevel window to allow the user to enter their details and send a code. '''
         # https://stackoverflow.com/a/1103063 - Overview of process
-        # TODO: Implement forgotten password functionality
-        pass
-    
+        self.forgottenPasswordWindow = tk.Toplevel(self)
+        self.forgottenPasswordWindow.title('Forgotten Password')
+        self.forgottenPasswordWindow.geometry('600x700+500+200')
+
+        # Title + Instructions
+        self.titleFrame = ttk.Frame(self.forgottenPasswordWindow)
+        self.titleFrame.pack(side='top', expand=True)
+
+        self.agsIcon = ImageTk.PhotoImage(Image.open(generalFunctions.resourcePath("Contents/images/ags.png")).resize((50, 50), Image.LANCZOS))
+        self.titleLabel = ttk.Label(self.titleFrame, text='Forgotten Password', image=self.agsIcon, compound='left', style='file.TLabel')
+        self.titleLabel.pack(side='top', expand=True)
+
+        self.instructionLabel = ttk.Label(self.forgottenPasswordWindow, text='To reset your password, please enter your account username, the email associated with it along with your date of birth.\n\nAn email containing a code will be sent if a matching account is found - once the code is entered, you will be able to reset your password.', wraplength=500, justify='center', style='ItalicCaption.TLabel')
+        self.instructionLabel.pack(side='top', expand=True)
+
+        # Entry Frame
+        self.entryFrame = ttk.Frame(self.forgottenPasswordWindow)
+        self.entryFrame.pack(side='top', expand=True)
+
+        self.usernameLabel = ttk.Label(self.entryFrame, text='Username')
+        self.usernameLabel.pack(padx=10, pady=5)
+        self.usernameEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT)
+        self.usernameEntry.pack(padx=10, pady=10)
+
+        self.emailLabel = ttk.Label(self.entryFrame, text='Email')
+        self.emailLabel.pack(padx=10, pady=5)
+        self.emailEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT)
+        self.emailEntry.pack(padx=10, pady=10)
+
+        self.dobLabel = ttk.Label(self.entryFrame, text='Date of Birth')
+        self.dobLabel.pack(padx=10, pady=5)
+        self.dobEntry = ttk.DateEntry(self.entryFrame, dateformat=r'%Y-%m-%d')
+        self.dobEntry.pack(padx=10, pady=10)
+
+        self.sendCodeButton = ttk.Button(self.forgottenPasswordWindow, text='Send Verification Code', style='Login.secondary.TButton', command=self.sendVerificationCode)
+        self.sendCodeButton.pack(pady=10)
+
+        # Verification Frame
+        self.enterCodeFrame = ttk.Frame(self.forgottenPasswordWindow)
+        self.enterCodeFrame.pack(side='top', fill='x', expand=True)
+
+        self.codeLabel = ttk.Label(self.enterCodeFrame, text='Enter Verification Code')
+        self.codeLabel.pack(padx=10, pady=5)
+
+        self.codeEntry = ttk.Entry(self.enterCodeFrame, font=ui.TEXT_ENTRY_FONT)
+        self.codeEntry.pack(padx=10, pady=10)
+
+        self.verifyCodeButton = ttk.Button(self.forgottenPasswordWindow, text='Verify Code', style='Login.secondary.TButton', command=self.verifyCode)
+        self.verifyCodeButton.pack(pady=10)
+
+    def sendVerificationCode(self):
+        ''' Function to handle sending the verification code to the user. '''
+        self.username, self.email, self.dob = self.usernameEntry.get(), self.emailEntry.get(), self.dobEntry.entry.get()
+
+        if self.username == '' or self.email == '' or self.dob == '': # If any of the fields are empty
+            messagebox.showerror('Error', 'Please ensure all fields are filled in.')
+            return
+        
+        sql = '''SELECT p.memberID FROM tbl_Pupils as p
+        INNER JOIN tbl_Accounts as a ON p.accountID = a.accountID
+        WHERE a.username = ? AND p.studentEmail = ? AND p.dateOfBirth = ?'''
+
+        cursor.execute(sql, (self.username, self.email, self.dob)) 
+        result = cursor.fetchone()
+
+        if not result: # If no account is found with the details provided
+            messagebox.showerror('Error', 'No account found with the details provided.')
+            return
+
+        # Generate a random code and send it to the user
+        self.verificationCode = generalFunctions.generateCode() # Generate a random 4 digit code, this code is stored in the class (self. -> @LoginPage) so it can be accessed later
+        self.emailMessage = f'''Subject: Sound and Lighting - Password Reset Code\n\nYour password reset code is: {self.verificationCode}\n\nIf you did not request this code, please ignore this email.'''
+        
+        try:
+            generalFunctions.sendEmail(self.email, self.emailMessage)
+        except:
+            messagebox.showerror('Error', 'Failed to send the email. Please check your email address and try again.')
+            return
+        messagebox.showinfo('Success', 'Verification Code Sent. Please check your email.')
+
+    def verifyCode(self):
+        ''' Function to handle verifying the code entered by the user. '''
+        if self.codeEntry.get() == '': # If the code entry field is empty
+            messagebox.showerror('Error', 'Please enter the verification code.')
+            return
+        
+        if not hasattr(self, 'verificationCode'): # If the verification code has not been generated
+            messagebox.showerror('Error', 'No verification code has been sent.')
+            return
+        
+        if self.codeEntry.get() == str(self.verificationCode):
+            messagebox.showinfo('Success', 'Code Verified. You can now reset your password.')
+
+            self.forgottenPasswordWindow.destroy()
+
+            self.resetPasswordWindow = tk.Toplevel(self)
+            self.resetPasswordWindow.title('Reset Password')
+            self.resetPasswordWindow.geometry('600x350+500+200')
+
+            # Title + Instructions
+            self.titleFrame = ttk.Frame(self.resetPasswordWindow)
+            self.titleFrame.pack(side='top', expand=True)
+
+            self.agsIcon = ImageTk.PhotoImage(Image.open(generalFunctions.resourcePath("Contents/images/ags.png")).resize((50, 50), Image.LANCZOS))
+            self.titleLabel = ttk.Label(self.titleFrame, text='Reset Password', image=self.agsIcon, compound='left', style='file.TLabel')
+            self.titleLabel.pack(side='top', expand=True)
+
+            self.instructionLabel = ttk.Label(self.resetPasswordWindow, text='To reset your password, please enter your new password below.', wraplength=500, justify='center', style='ItalicCaption.TLabel')
+            self.instructionLabel.pack(side='top', expand=True)
+
+            # Entry Frame
+            self.entryFrame = ttk.Frame(self.resetPasswordWindow)
+            self.entryFrame.pack(side='top', expand=True)
+
+            self.passwordLabel = ttk.Label(self.entryFrame, text='New Password')
+            self.passwordLabel.pack(padx=10, pady=5)
+            self.passwordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordEntry, validation.validatePassword))
+            self.passwordEntry.pack(padx=10, pady=10)
+
+            self.confirmPasswordLabel = ttk.Label(self.entryFrame, text='Confirm Password')
+            self.confirmPasswordLabel.pack(padx=10, pady=5)
+            self.confirmPasswordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.confirmPasswordEntry, validation.validatePassword))
+            self.confirmPasswordEntry.pack(padx=10, pady=10)
+
+            self.resetPasswordButton = ttk.Button(self.resetPasswordWindow, text='Reset Password', style='Login.secondary.TButton', command=self.resetPassword)
+            self.resetPasswordButton.pack(pady=10)
+        else:
+            messagebox.showerror('Error', 'Code Verification Failed. Please try again.')
+
+    def resetPassword(self):
+        ''' Function to handle resetting the password. '''
+        if validation.validatePassword(self.passwordEntry, self.passwordEntry.get()) and validation.validatePassword(self.confirmPasswordEntry, self.confirmPasswordEntry.get()):
+            if self.passwordEntry.get() != self.confirmPasswordEntry.get():
+                messagebox.showerror('Error', 'Passwords do not match.')
+                return
+
+            sql = '''UPDATE tbl_Accounts SET password = ? WHERE username = ?'''
+            cursor.execute(sql, (self.passwordEntry.get(), self.username))
+            connection.commit()
+
+            messagebox.showinfo('Success', 'Password Reset Successfully.')
+            self.resetPasswordWindow.destroy()
+
+    def updateDefaultPasswordPrompt(self, accountID):
+        ''' Function to handle updating the password, create a toplevel window that accepts a new password. '''
+        self.updatePasswordWindow = tk.Toplevel(self)
+        self.updatePasswordWindow.title('Update Password')
+        self.updatePasswordWindow.geometry('600x400+500+200')
+
+        # Title + Instructions
+        self.titleFrame = ttk.Frame(self.updatePasswordWindow)
+        self.titleFrame.pack(side='top', expand=True)
+
+        self.agsIcon = ImageTk.PhotoImage(Image.open(generalFunctions.resourcePath("Contents/images/ags.png")).resize((50, 50), Image.LANCZOS))
+        self.titleLabel = ttk.Label(self.titleFrame, text='Update Password', image=self.agsIcon, compound='left', style='file.TLabel')
+        self.titleLabel.pack(side='top', expand=True)
+
+        self.instructionLabel = ttk.Label(self.updatePasswordWindow, text='Please update your default password!\nTo update your password, please enter your new password below.', wraplength=500, justify='center', style='ItalicCaption.TLabel')
+        self.instructionLabel.pack(side='top', expand=True)
+
+        # Entry Frame
+        self.entryFrame = ttk.Frame(self.updatePasswordWindow)
+        self.entryFrame.pack(side='top', expand=True)
+
+        self.passwordLabel = ttk.Label(self.entryFrame, text='New Password')
+        self.passwordLabel.pack(padx=10, pady=5)
+        self.passwordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordEntry, validation.validatePassword))
+        self.passwordEntry.pack(padx=10, pady=10)
+
+        self.confirmPasswordLabel = ttk.Label(self.entryFrame, text='Confirm Password')
+        self.confirmPasswordLabel.pack(padx=10, pady=5)
+        self.confirmPasswordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.confirmPasswordEntry, validation.validatePassword))
+        self.confirmPasswordEntry.pack(padx=10, pady=10)
+
+        self.updatePasswordButton = ttk.Button(self.updatePasswordWindow, text='Update Password', style='Login.secondary.TButton', command=lambda: self.updatePassword(accountID))
+        self.updatePasswordButton.pack(pady=10)
+
+    def updatePassword(self, accountID):
+        ''' Function to handle updating the password. '''
+        if validation.validatePassword(self.passwordEntry, self.passwordEntry.get()) and validation.validatePassword(self.confirmPasswordEntry, self.confirmPasswordEntry.get()):
+            if self.passwordEntry.get() != self.confirmPasswordEntry.get():
+                messagebox.showerror('Error', 'Passwords do not match.')
+                return
+
+            sql = '''UPDATE tbl_Accounts SET password = ? WHERE accountID = ?'''
+            cursor.execute(sql, (self.passwordEntry.get(), accountID))
+            connection.commit()
+
+            messagebox.showinfo('Success', 'Password Updated Successfully.')
+            self.updatePasswordWindow.destroy()
+
     def login(self, event=None):
         ''' Function to handle the login process. Validate the username and password, then attempt to login, and set the access level depending on the details linked to the account. '''
         if validation.validateUsername(self.usernameField, self.usernameField.get()) and validation.validatePassword(self.passwordField, self.passwordField.get()):
             self.accountDetails = database.login(cursor, self.usernameField.get(), self.passwordField.get())
 
             if self.accountDetails: # If the account exists and the password is correct
+                if self.passwordField.get() == 'Password1': # If the account has the default password
+                    self.updateDefaultPasswordPrompt(self.accountDetails[0]) # Update the password
+                    return
                 try:
                     if self.accountDetails[3]: # If the account is for a student (there is a year group present)
                         if self.accountDetails[3] in ['13', '14']: # If the account is in Year 13/14 (Sixth Form)
@@ -238,12 +432,9 @@ class Dashboard(ui.PageStructure):
         self.eventFrame.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.85, anchor='nw')
         
         # Create buttons for viewing upcoming events and adding new events
-        self.upcomingEventsTextVar = ttk.StringVar(value=f'Upcoming Events\n\n\n{database.getLatestEventsDetails(cursor)}')
-        # self.upcomingEventsButton = ui.ContentButton(self.eventFrame, controller, self.upcomingEventsTexself.accordionar, lambda: controller.showFrame(UpcomingEventsPage))
+        self.upcomingEventsTextVar = ttk.StringVar(value=f'View Upcoming Events and Assemblies\n\n\n\n{database.getLatestEventsDetails(cursor)}')
         self.upcomingEventsButton = ttk.Button(self.eventFrame, textvariable=self.upcomingEventsTextVar, style='UE.dbButton.Outline.TButton', command=lambda: controller.showFrame(UpcomingEventsPage))
         self.upcomingEventsButton.pack(side='top', fill='both', expand=True, padx=10, pady=10)
-        # self.upcomingEventsLabel = ttk.Label(self.upcomingEventsButton, text='SOURCED FROM DATABASE', style='dbLabel.TLabel')
-        # self.upcomingEventsLabel.pack(side='bottom', padx=10, pady=10)
         
         # Create a frame for buttons
         self.buttonFrame = ttk.Frame(self, style='TFrame')
@@ -253,7 +444,7 @@ class Dashboard(ui.PageStructure):
         self.buttonFrame.grid_rowconfigure([0,1,2], weight=1)
 
         # Create buttons for viewing documentation, information about members, archive, connect to soundboard, training materials, and settings
-        self.documentationButton = ttk.Button(self.buttonFrame, text='View Documentation', style='dbButton.Outline.TButton', command=lambda: controller.showFrame(DocumentationPage))
+        self.documentationButton = ttk.Button(self.buttonFrame, text='View Current Documentation', style='dbButton.Outline.TButton', command=lambda: controller.showFrame(DocumentationPage))
         self.documentationButton.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
         self.membersButton = ttk.Button(self.buttonFrame, text='Member and Staff Information', style='dbButton.Outline.TButton', command=lambda: controller.showFrame(MemberandStaffInformationPage))
@@ -279,7 +470,7 @@ class Dashboard(ui.PageStructure):
         self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='ItalicCaption.TLabel')
         self.userLabel.pack(side='left', expand=True)
 
-        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.3', style='ItalicCaption.TLabel')
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.5', style='ItalicCaption.TLabel')
         self.versionLabel.pack(side='right', expand=True)
 
         self.timeLabel = ttk.Label(self.bottomFrame, text='', style='ItalicCaption.TLabel')
@@ -299,7 +490,7 @@ class Dashboard(ui.PageStructure):
     def updatePage(self):
         ''' Refresh the upcoming events button every 10 seconds to ensure up to date information is displayed '''
         # Update the upcoming events button text to show the latest events
-        self.upcomingEventsTextVar.set(f'Upcoming Events\n\n\n{database.getLatestEventsDetails(cursor)}')
+        self.upcomingEventsTextVar.set(f'View Upcoming Events and Assemblies\n\n\n\n{database.getLatestEventsDetails(cursor)}')
         # Call the updater function again after 10000ms (10 seconds)
         self.after(10000, self.updatePage)
 
@@ -309,7 +500,7 @@ class UpcomingEventsPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
 
-        self.table = ui.EventsTableView(self, controller, connection, cursor, rowData=database.getAllEventsDetails(cursor), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements'])
+        self.table = ui.EventsTableView(self, controller, connection, cursor, rowData=database.getUpcomingEventsDetails(cursor), columnData=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements'])
 
 class DocumentationPage(ui.PageStructure):
     def __init__(self, parent, controller: MainApp):
@@ -317,22 +508,14 @@ class DocumentationPage(ui.PageStructure):
 
         self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
 
+        self.createRotaButton = ttk.Button(self, text='Create New Rota', image=controller.style.images['addRota'], compound='left', style='action.secondary.Outline.TButton', command=self.createRotaCallback)
+        ui.createTooltip(self.createRotaButton, 'Create a new random rota of all pupils.')
+
         self.baseFilePath = generalFunctions.resourcePath('Contents/Documents/Current Working Documents')
         self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
         self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
-        self.controlsFrame = ttk.Frame(self, style='TFrame')
-        self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
-
-        self.contentName = ttk.Label(self.controlsFrame, text='Click a File to View', style='file.TLabel')
-        self.contentName.pack(side='left', padx=10, pady=20)
-
-        self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
-        self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.openFileLocButton = ttk.Button(self.controlsFrame, text='Open File Location', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
-        self.openFileLocButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.exportButton.configure(state='disabled')
-        self.openFileLocButton.configure(state='disabled')
+        self.controlsFrame = ui.FileControlBar(self, controller)
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
@@ -340,6 +523,29 @@ class DocumentationPage(ui.PageStructure):
         self.pdfObject = tkPDF.ShowPdf() # Create a pdf object
         self.contentViewer = self.pdfObject.pdf_view(self.contentFrame, bar=False, pdf_location='') # and set the default content to be a pdf, this will be changed when a file is selected
         self.contentViewer.pack(side='top', fill='both', expand=True)
+
+        self.addCreateRotaButton() # Call the function to add the create rota button if the user is an admin/Head of the Team
+    
+    def addCreateRotaButton(self):
+        ''' If the user is an admin/Head of the Team, add a button to create a new rota above the accordion and update the positions accordingly. '''
+        if ui.ACCESS_LEVEL == 'Admin':
+            self.createRotaButton.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.1, anchor='nw')
+            self.accordion.place(relx=0, rely=0.2, relwidth=0.3, relheight=0.8, anchor='nw')
+        else:
+            self.createRotaButton.place_forget()
+            self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
+
+        self.accordion.after(5000, self.addCreateRotaButton) # Call the function again after 5 seconds to check if the user's access level has changed
+
+    def createRotaCallback(self):
+        ''' Callback function to create a new rota. '''
+        members = [f'{member[1]} {member[2]}' for member in database.getAllMemberDetails(cursor)] # Get all the members and format them as 'First Name Surname'
+        
+        generalFunctions.createRota(members) # Call the createRota function to create a new rota
+
+        messagebox.showinfo('Success', 'Rota Created Successfully. Please check the Rotas folder for the new rota.')
+
+        self.accordion.refreshFields(generalFunctions.getDirectoryStructure(self.baseFilePath)) # Refresh the accordion to show the new rota
 
 class MemberandStaffInformationPage(ui.PageStructure):
     def __init__(self, parent, controller: MainApp):
@@ -359,9 +565,11 @@ class MemberandStaffInformationPage(ui.PageStructure):
         self.statisticsFrame.pack(side='top', fill='both', expand=True)
         self.tabbedFrame.add(self.statisticsFrame.container, text='Member Statistics')
 
+        # Create the graphs for the statistics, TODO - Add more statistics
         self.showMostActiveMembers()
-        self.showPopularLocations()
+        self.showMostActiveHouses()
         self.showMostFrequentRequesters()
+        self.showPopularLocations()
 
         # Create the staff information table
         self.staffTable = ui.StaffTableView(self.tabbedFrame, controller, connection, cursor, rowData=database.getAllStaffDetails(cursor), columnData=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
@@ -394,8 +602,40 @@ class MemberandStaffInformationPage(ui.PageStructure):
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
         self.canvas.draw()
 
+    def showMostActiveHouses(self):
+        ''' Query the database for the Houses who have set up the most events and create a pie graph showing the results. '''
+        self.heading = ttk.Label(self.statisticsFrame, text='Most Active Houses', style='ItalicCaption.TLabel')
+        self.heading.pack(padx=10, pady=10)
+
+        # Query the database to get the number of times each member has taken an event
+        cursor.execute('''SELECT p.house, COUNT(*) 
+                       FROM tbl_SetupGroups as sg 
+                       INNER JOIN tbl_Pupils as p ON sg.pupilID = p.memberID
+                       GROUP BY p.house ORDER BY COUNT(*) DESC''')
+        result = cursor.fetchall()
+
+        # Separate the Members and the count of events into their own lists
+        house = [row[0] for row in result]
+        houseCount = [row[1] for row in result]
+        colours = { # Colours for each house
+            'Tower': '#A41820',
+            'Massereene': '#0293D4',
+            'Clotworthy': '#FDC922',
+            'Tardree': '#03753F'
+        }
+
+        # Create the figure and bar itself
+        self.figure = plt.Figure(figsize=(5, 4), dpi=100)
+        self.plot = self.figure.add_subplot(111)
+        self.plot.pie(houseCount, labels=house, autopct='%1.1f%%', colors=[colours[key] for key in house])
+
+        # Create the canvas to display the graph
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.statisticsFrame)
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+        self.canvas.draw()
+
     def showPopularLocations(self):
-        ''' Query the database for information on the most popular locations and create a bar graph showing the results. '''
+        ''' Query the database for information on the most popular locations and create a pie chart showing the results. '''
         self.heading = ttk.Label(self.statisticsFrame, text='Most Popular Event Locations', style='ItalicCaption.TLabel')
         self.heading.pack(padx=10, pady=10)
 
@@ -413,7 +653,8 @@ class MemberandStaffInformationPage(ui.PageStructure):
         # Create the figure and bar itself
         self.figure = plt.Figure(figsize=(5, 4), dpi=100)
         self.plot = self.figure.add_subplot(111)
-        self.plot.bar(locations, locationCount, tick_label=locations)
+        # self.plot.bar(locations, locationCount, tick_label=locations)
+        self.plot.pie(locationCount, labels=locations, autopct='%1.1f%%')
 
         # Create the canvas to display the graph
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.statisticsFrame)
@@ -422,7 +663,7 @@ class MemberandStaffInformationPage(ui.PageStructure):
 
     def showMostFrequentRequesters(self):
         ''' Query the database for the top requesters of SL, display the information in a graph '''
-        self.heading = ttk.Label(self.statisticsFrame, text='Most Frequent Event/Assembly Requesters', style='ItalicCaption.TLabel')
+        self.heading = ttk.Label(self.statisticsFrame, text='Most Frequent Event/Assembly Requesters (Top 10)', style='ItalicCaption.TLabel')
         self.heading.pack(padx=10, pady=10)
 
         # Query the database to get the number of times each member has taken an event
@@ -456,18 +697,7 @@ class ArchivePage(ui.PageStructure):
         self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
         self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
-        self.controlsFrame = ttk.Frame(self, style='TFrame')
-        self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
-
-        self.contentName = ttk.Label(self.controlsFrame, text='Click a File to View', style='file.TLabel')
-        self.contentName.pack(side='left', padx=10, pady=20)
-
-        self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
-        self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.openFileLocButton = ttk.Button(self.controlsFrame, text='Open File Location', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
-        self.openFileLocButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.exportButton.configure(state='disabled')
-        self.openFileLocButton.configure(state='disabled')
+        self.controlsFrame = ui.FileControlBar(self, controller)
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
@@ -532,8 +762,7 @@ class ConnectToSoundboardPage(ui.PageStructure):
         self.unmuteLRButton = ttk.Button(self.unmuteFrame, text='Unmute Master', style='dbButton.Outline.TButton', command=lambda: self.toggleButtonFunctionality(self.unmuteLRButton, [soundBoardController.controlMuteChannel('LR', False), soundBoardController.controlMuteChannel('LR', True)]))
         self.unmuteLRButton.grid(row=2, column=1, pady=10, padx=10, sticky='nsew')
 
-        global isRecording
-        isRecording = False
+        self.isRecording = False
         self.updatePage() # Call the updater function to start updating the page (e.g. status of connection to soundboard and buttons)
 
     def updatePage(self):
@@ -575,21 +804,19 @@ class ConnectToSoundboardPage(ui.PageStructure):
         
     def startRecordingCallback(self):
         ''' Callback function to start recording audio from the soundboard. '''
-        global isRecording, recordingThread
-        if not isRecording:
-            isRecording = True
+        if not self.isRecording:
+            self.isRecording = True
             soundBoardController.sendOutput(soundBoardController.controlMuteChannel('MTX1-2', False)) # UNMUTE MTX1-2
-            soundBoardController.sendOutput(soundBoardController.setVolume('MTX1-2', 127)) # SET MTX1-2 FADER TO 10dBu, routing audio to the USB B port
+            soundBoardController.sendOutput(soundBoardController.setVolume('MTX1-2', 100)) # SET MTX1-2 FADER TO aprox 1dBu, routing audio to the USB B port
 
-            recordingThread = threading.Thread(target=soundBoardController.audioRecording.recordAudio) # Create a new thread to record audio, to prevent the GUI from freezing
-            recordingThread.start() # Start the recording thread
+            self.recordingThread = threading.Thread(target=soundBoardController.audioRecording.recordAudio) # Create a new thread to record audio, to prevent the GUI from freezing
+            self.recordingThread.start() # Start the recording thread
 
             self.updateRecordingTimer() # Call the function to update the recording timer initially
         
     def updateRecordingTimer(self):
         ''' Function to update the recording timer every second. '''
-        global isRecording
-        if isRecording:
+        if self.isRecording:
             self.seconds += 1
             if self.seconds == 60:
                 self.mins += 1
@@ -600,11 +827,10 @@ class ConnectToSoundboardPage(ui.PageStructure):
 
     def endRecordingCallback(self):
         ''' Callback function to stop recording audio from the soundboard. Set the stop flag to True and wait for the recording thread to finish. '''
-        global isRecording, recordingThread
-        if isRecording:
-            isRecording = False
-            soundBoardController.audioRecording.stopFlag = True # Set the stop flag to True, breaking the loop in the recording thread
-            recordingThread.join() # Wait for the recording thread to finish
+        if self.isRecording:
+            self.isRecording = False
+            soundBoardController.audioRecording.STOP_FLAG = True # Set the stop flag to True, breaking the loop in the recording thread
+            self.recordingThread.join() # Wait for the recording thread to finish
 
             self.recordingTimer.after_cancel(self.eventID) # Cancel the event to update the recording timer
             self.recordingTimer.configure(text='Recording Ended') # Update the recording timer text to show that the recording has ended
@@ -631,18 +857,7 @@ class TrainingMaterialsPage(ui.PageStructure):
         self.accordion = ui.Accoridon(self, controller=controller, data=generalFunctions.getDirectoryStructure(self.baseFilePath))
         self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
-        self.controlsFrame = ttk.Frame(self, style='TFrame')
-        self.controlsFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.1, anchor='nw')
-
-        self.contentName = ttk.Label(self.controlsFrame, text='Click a File to View', style='file.TLabel')
-        self.contentName.pack(side='left', padx=10, pady=20)
-
-        self.exportButton = ttk.Button(self.controlsFrame, text='Export', image=controller.style.images['download'], compound='left', style='action.secondary.TButton', command=None)
-        self.exportButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.openFileLocButton = ttk.Button(self.controlsFrame, text='Open File Location', image=controller.style.images['edit'], compound='left', style='action.secondary.TButton', command=None)
-        self.openFileLocButton.pack(side='right', fill='both', padx=10, pady=10)
-        self.exportButton.configure(state='disabled')
-        self.openFileLocButton.configure(state='disabled')
+        self.controlsFrame = ui.FileControlBar(self, controller)
 
         self.contentFrame = ttk.Frame(self, style='TFrame')
         self.contentFrame.place(relx=0.3, rely=0.2, relwidth=0.7, relheight=0.8, anchor='nw')
@@ -679,7 +894,7 @@ class FAQPage(ttk.Toplevel):
         self.mainFrame = ttk.Frame(self, style='TFrame')
         self.mainFrame.place(relx=0.3, rely=0, relwidth=0.7, relheight=1, anchor='nw')
 
-        data = { # Data for the accordion and main content
+        data = { # Data for the accordion and main content TODO - Complete this to show the correct information
             'General': 'This is the general section',
             'Login Page': 'What is this?',
             'Upcoming Events': 'What is this?',

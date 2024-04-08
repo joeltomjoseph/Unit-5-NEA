@@ -4,6 +4,8 @@ import datetime
 
 from .generalFunctions import resourcePath
 
+STOP_FLAG = False # Flag to control continuous recording
+
 def findDeviceIndex(pyaudioInterface: pyaudio.PyAudio, searchTerm: str):
     ''' Function to find the index of the QU-24 in the list of audio devices to check if it exists before recording. If the QU-24 is not found, then return None. '''
     found = None
@@ -40,7 +42,7 @@ def recordAudio():
         channels = 32 # 32 channels of audio, as per the QU-24      #p.get_device_info_by_index(deviceIndex)['maxInputChannels']
         fs = 48000  # Record at 48000 samples per second, as per the QU-24
         maxSeconds = 1000 # Max recording time in seconds
-        global stopFlag; stopFlag = False # Global Flag to control continuous recording, controllable outside the function
+        STOP_FLAG = False # Flag to control continuous recording, controllable outside the function
         filename = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S") + ".wav" # Filename for the recorded audio is the current date and time
         filePath = resourcePath(f"Contents/Recordings/{filename}") # Filepath for the recorded audio
 
@@ -55,7 +57,7 @@ def recordAudio():
                 filteredData = b''.join([bytes.fromhex(data[i:i+12]) for i in range(0, len(data), 192)]) # Filter the data to remove the extra empty bytes
                 frames.append(filteredData) # Append the filtered data to the frames array
                 
-                if stopFlag or len(frames) > int(fs / chunk * maxSeconds): # if the stopFlag is True or the length of frames is greater than max recording length, stop recording
+                if STOP_FLAG or len(frames) > int(fs / chunk * maxSeconds): # if the stopFlag is True or the length of frames is greater than max recording length, stop recording
                     break
             
             # for i in range(0, int(fs / chunk * seconds)):

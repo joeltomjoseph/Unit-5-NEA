@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=['env/bin', 'env/lib/python3.10/site-packages'],
     binaries=[],
-    datas=[('Contents/Documents', 'Contents/Documents'), ('Contents/images', 'Contents/images'), ('Contents/Recordings', 'Contents/Recordings'), ('Contents/.temp', 'Contents/.temp'), ('Contents/TestDatabase.db', 'Contents'), ('Contents/agsStyle.json' , 'Contents')],
+    datas=[('Contents/Documents', 'Contents/Documents'), ('Contents/images', 'Contents/images'), ('Contents/Recordings', 'Contents/Recordings'), ('Contents/TestDatabase.db', 'Contents'), ('Contents/agsStyle.json' , 'Contents')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

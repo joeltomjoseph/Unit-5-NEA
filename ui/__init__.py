@@ -10,7 +10,7 @@ import platform
 from pathlib import Path
 import datetime
 
-from functions import generalFunctions, database
+from functions import generalFunctions, database, validation
 
 ''' Constants '''
 COLOURS = {
@@ -47,6 +47,7 @@ def createWidgetStyles(style: ttk.Style):
     ''' Creates the custom styles for the widgets which overwrite the base styles from the theme '''
     # Test styles for debugging
     style.configure('test.TFrame', background='red')
+    style.configure('test.TLabel', background='red')
 
     # Default - Override all widgets
     style.configure('.', font=(BODY_FONT)) # Used to set the size of buttons created by default as they were too small
@@ -54,6 +55,7 @@ def createWidgetStyles(style: ttk.Style):
     # Text
     style.configure('TLabel', font=BODY_FONT)
     style.configure('Heading.TLabel', font=HEADING_FONT, background=COLOURS["primary"], foreground='#ffffff')
+    style.configure('Heading2.TLabel', font=HEADING_FONT)
     style.configure('ItalicCaption.TLabel', font=ITALIC_CAPTION_FONT)
     style.configure('BoldCaption.TLabel', font=BOLD_CAPTION_FONT)
     style.configure('Entry.TLabel', font=TEXT_ENTRY_FONT)
@@ -135,8 +137,8 @@ class ToolTip:
                           font=TOOLTIP_FONT)
         label.pack(ipadx=1)
 
-    def showTooltipOnWidget(self, text: str):
-        ''' Display text in a tooltip window based on the widget position '''
+    def showTooltipOnWidget(self, text: str, error: bool = False):
+        ''' Display text in a tooltip window based on the widget position, if `error` is True, the tooltip will be shown in red. '''
         self.text = text
         if self.tipWindow or not self.text:
             return
@@ -150,6 +152,9 @@ class ToolTip:
         label = ttk.Label(self.tipWindow, text=self.text, justify='left',
                           background='#ffffff', relief='flat', borderwidth=1,
                           font=TOOLTIP_FONT)
+        if error:
+            label.configure(background='red', foreground='white')
+        
         label.pack(ipadx=1)
 
     def hideTooltip(self):
@@ -157,13 +162,14 @@ class ToolTip:
             self.tipWindow.destroy()
         self.tipWindow = None
 
-def createTooltip(widget: tk.Widget, text: str, onWidget: bool = False):
+def createTooltip(widget: tk.Widget, text: str, onWidget: bool = False, error: bool = False):
     ''' Initialise a tooltip with text that is shown when the user hovers over chosen widget.
-    If `onWidget` is True, the tooltip will be shown on the widget itself without the need to hover over it. '''
+    If `onWidget` is True, the tooltip will be shown on the widget itself without the need to hover over it.
+    If `error` is True, the tooltip will be shown in red. '''
     tool_tip = ToolTip(widget)
 
     if onWidget:
-        tool_tip.showTooltipOnWidget(text)
+        tool_tip.showTooltipOnWidget(text, error)
 
         def leave(tk_event: tk.Event = None):
             tool_tip.hideTooltip()
@@ -254,7 +260,7 @@ class MenuBar(ttk.Frame):
 
 class updatedTableview(Tableview):
     ''' Overrides the base Tableview class to allow for customisation of the tableview.
-    This changes the _build_search_frame function to include more controls such as an Add, Edit and Delete button. '''
+    This changes the '_build_search_frame' function to include more controls such as an Add, Edit and Delete button. '''
     def __init__(self, master=None, controller=None, eventPage: bool = False, *args, **kwargs):
             self.controller = controller
             super().__init__(master, autoalign=True, *args, **kwargs)
@@ -392,7 +398,7 @@ class EventsTableView(ttk.Frame):
                     database.joinSetupGroup(self.connection, self.cursor, data[0], database.getUserID(self.cursor, ACCOUNT_ID))
                     self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
 
-                    generalFunctions.sendEmail(database.getUserEmail(self.cursor, ACCOUNT_ID), f'Subject: Sound and Lighting: Setup Event\n\nYou have joined the setup group for the event `{data[1]}` on {data[2]} at {data[3]}.')
+                    generalFunctions.sendEmail(database.getUserEmail(self.cursor, ACCOUNT_ID), f'Subject: Sound and Lighting: Setup Event\n\nYou have joined the setup group for the event "{data[0]}" on {data[1]} at {data[2]}.')
                 except database.sql.IntegrityError:
                     #Messagebox.show_error('You are already a part of the setup group for this event.', 'Error')
                     if Messagebox.show_question('You are already a part of the setup group for this event. Would you like to leave the setup group?', 'Error') == 'Yes':
@@ -416,7 +422,7 @@ class EventsTableView(ttk.Frame):
             if Messagebox.show_question('Are you sure you want to delete this event?', 'Delete Event') == 'Yes':
                 data = self.table.view.item(row, 'values') # get the data from the row
                 # print(data)
-                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Events', 'eventID', data[0])
+                database.removeEvent(self.connection, self.cursor, data[0]) # remove the event from the database
 
                 self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
         
@@ -430,25 +436,27 @@ class EventsTableView(ttk.Frame):
         self.title = ttk.Label(self.eventForm.titleFrame, text='Add an Event/Assembly', style='BoldCaption.TLabel')
         self.title.pack()
         # create the fields for the form
-        self.name = ttk.Label(self.eventForm.formFrame, text="Name")
+        self.name = ttk.Label(self.eventForm.formFrame, text="Name Of Event*")
         self.name.pack()
-        eventNameEntry = ttk.Entry(self.eventForm.formFrame)
+        eventNameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(eventNameEntry, validation.presenceCheck))
         eventNameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Date").pack()
+        ttk.Label(self.eventForm.formFrame, text="Date*").pack()
         eventDateEntry = ttk.DateEntry(self.eventForm.formFrame, dateformat=r'%Y-%m-%d') # ie. 2024-01-10, DATE datatype format recognised by SQLite
+        eventDateEntry.entry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(eventDateEntry.entry, validation.presenceCheck, validation.dateInFutureCheck))
         eventDateEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Time (hh:mm)").pack()
-        eventTimeEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Time (hh:mm)*").pack()
+        eventTimeEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(eventTimeEntry, validation.presenceCheck, validation.timeFormatCheck))
         eventTimeEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Duration (hh:mm)").pack()
-        eventDurationEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Duration (hh:mm)*").pack()
+        eventDurationEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(eventDurationEntry, validation.presenceCheck, validation.timeFormatCheck))
         eventDurationEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Requested By").pack()
+        ttk.Label(self.eventForm.formFrame, text="Requested By*").pack()
         eventRequestedByEntry = ttk.Combobox(self.eventForm.formFrame, values=staffValues)
+        eventRequestedByEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(eventRequestedByEntry, validation.presenceCheck))
         eventRequestedByEntry.state(['readonly'])
         eventRequestedByEntry.pack()
 
@@ -466,8 +474,9 @@ class EventsTableView(ttk.Frame):
         # self.testB = ttk.Button(self.eventForm.formFrame, text='Test', style='outline.TButton', command=lambda: print([var.get() for var in eventSetupByEntry.menu.vars]))
         # self.testB.pack(pady=5, padx=20)
 
-        ttk.Label(self.eventForm.formFrame, text="Location").pack()
+        ttk.Label(self.eventForm.formFrame, text="Location*").pack()
         eventLocationEntry = ttk.Combobox(self.eventForm.formFrame, values=[f'{location[0]} {location[1]}' for location in locationValues]) # unpack the values so they are formatted correctly
+        eventLocationEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(eventLocationEntry, validation.presenceCheck))
         eventLocationEntry.state(['readonly'])
         eventLocationEntry.pack()
 
@@ -482,10 +491,21 @@ class EventsTableView(ttk.Frame):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame) # get the data from the form
         # print(data)
+        if data == None: return # If the data is None due to validation, return
+        
+        # send emails to pupils doing the setup.
+        setupMembersIDs = data[5] # get the members Account IDs that are in the setup group
+        setupMembersEmails = [database.getUserEmailWithUserID(self.cursor, memberID) for memberID in setupMembersIDs] # get the emails of the members in the setup group
+        try:
+            for email in setupMembersEmails:
+                generalFunctions.sendEmail(email, f'Subject: Sound and Lighting: Setup Event\n\nYou have been assigned to the setup group for the event "{data[0]}" on {data[1]} at {data[2]}.')
+        except Exception as e:
+            Messagebox.show_error(f'An error occurred: {e}', 'Error')
+
         database.insertDataIntoEventsTable(self.connection, self.cursor, data)
 
         Messagebox.show_info('Event Added Successfully', 'Success')
-        
+
         self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
 
         self.eventForm.destroy() # destroy the popup window
@@ -509,32 +529,33 @@ class EventsTableView(ttk.Frame):
             self.title = ttk.Label(self.eventForm.titleFrame, text='Update an Event/Assembly', style='BoldCaption.TLabel')
             self.title.pack()
             # create the fields for the form
-            self.name = ttk.Label(self.eventForm.formFrame, text="Name")
+            self.name = ttk.Label(self.eventForm.formFrame, text="Name of Event*")
             self.name.pack()
-            eventNameEntry = ttk.Entry(self.eventForm.formFrame)
+            eventNameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(eventNameEntry, validation.presenceCheck))
             eventNameEntry.insert(0, data[1]) # insert the data from the row into the form so the user can see what they are editing
             eventNameEntry.pack()
             
-            ttk.Label(self.eventForm.formFrame, text="Date").pack()
+            ttk.Label(self.eventForm.formFrame, text="Date*").pack()
             eventDateEntry = ttk.DateEntry(self.eventForm.formFrame, dateformat=r'%Y-%m-%d') # ie. 2024-01-10, DATE datatype format recognised by SQLite
             eventDateEntry.entry.delete(0, 'end') # delete the default date that is shown
             eventDateEntry.entry.insert(0, data[2])
+            eventDateEntry.entry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(eventDateEntry.entry, validation.presenceCheck, validation.dateInFutureCheck))
             eventDateEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Time (hh:mm)").pack()
-            eventTimeEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Time (hh:mm)*").pack()
+            eventTimeEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(eventTimeEntry, validation.presenceCheck, validation.timeFormatCheck))
             eventTimeEntry.insert(0, data[3])
             eventTimeEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Duration (hh:mm)").pack()
-            eventDurationEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Duration (hh:mm)*").pack()
+            eventDurationEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(eventDurationEntry, validation.presenceCheck, validation.timeFormatCheck))
             eventDurationEntry.insert(0, data[4])
             eventDurationEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Requested By").pack()
+            ttk.Label(self.eventForm.formFrame, text="Requested By*").pack()
             eventRequestedByEntry = ttk.Combobox(self.eventForm.formFrame, values=staffValues) #[staff[1] for staff in staffValues]
+            eventRequestedByEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(eventRequestedByEntry, validation.presenceCheck))
             eventRequestedByEntry.state(['readonly']) # make the combobox readonly so the user can't type in it, only select from the list
-            # eventRequestedByEntry.insert(0, data[5])
             eventRequestedByEntry.set(data[5]) # set the value of the combobox to the staff member that is in the selected row
             eventRequestedByEntry.pack()
 
@@ -552,8 +573,9 @@ class EventsTableView(ttk.Frame):
                 if f'{user[1]} {user[2]} {user[4]}' in data[6]:
                     eventSetupByEntry.menu.vars[-1].set(user[0]) # if the member is in the list of members for the event, set the checkbutton to be checked
 
-            ttk.Label(self.eventForm.formFrame, text="Location").pack()
+            ttk.Label(self.eventForm.formFrame, text="Location*").pack()
             eventLocationEntry = ttk.Combobox(self.eventForm.formFrame, values=[f'{location[0]} {location[1]}' for location in locationValues]) #[location[1] for location in locationValues]
+            eventLocationEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(eventLocationEntry, validation.presenceCheck))
             eventLocationEntry.state(['readonly'])
             # eventLocationEntry.insert(0, data[7])
             eventLocationEntry.set(f'{data[7][0]} {data[7][1]}')
@@ -571,6 +593,8 @@ class EventsTableView(ttk.Frame):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame) # get the data from the form
 
+        if data == None: return # If the data is None due to validation, return
+        
         database.updateEvent(self.connection, self.cursor, data, id)
 
         Messagebox.show_info('Event Updated Successfully', 'Success')
@@ -601,7 +625,8 @@ class MemberTableView(ttk.Frame):
             if Messagebox.show_question('Are you sure you want to delete this Member?', 'Delete Member') == 'Yes':
                 data = self.table.view.item(row, 'values') # get the data from the row
                 # print(data)
-                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Pupils', 'pupilID', data[0])
+                # database.deleteRowWithID(self.connection, self.cursor, 'tbl_Pupils', 'pupilID', data[0])
+                database.removeMember(self.connection, self.cursor, data[0]) # remove the member from the database
 
                 self.table.build_table_data(rowdata=database.getAllMemberDetails(self.cursor), coldata=['Pupil ID', 'First Name', 'Surname', 'Username', 'Class', 'Email', 'Date Of Birth', 'House'])
         
@@ -616,32 +641,35 @@ class MemberTableView(ttk.Frame):
         self.title = ttk.Label(self.eventForm.titleFrame, text='Add an Member', style='BoldCaption.TLabel')
         self.title.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="First Name").pack()
-        firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="First Name*").pack()
+        firstNameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(firstNameEntry, validation.presenceCheck))
         firstNameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Surname").pack()
-        surnameEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Surname*").pack()
+        surnameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(surnameEntry, validation.presenceCheck))
         surnameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account\nwith default password 'Password1'", justify='center').pack()
-        usernameEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Username*, (this will create a new Account\nwith default password 'Password1')", justify='center').pack()
+        usernameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(usernameEntry, validation.presenceCheck))
         usernameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Class").pack()
+        ttk.Label(self.eventForm.formFrame, text="Class*").pack()
         classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=classValues)
+        classEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(classEntry, validation.presenceCheck))
         classEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Email").pack()
-        emailEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Email*").pack()
+        emailEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(emailEntry, validation.presenceCheck, validation.emailFormatCheck))
         emailEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Date of Birth").pack()
+        ttk.Label(self.eventForm.formFrame, text="Date of Birth*").pack()
         birthDateEntry = ttk.DateEntry(self.eventForm.formFrame, dateformat=r'%Y-%m-%d') # ie. 2024-01-10, DATE datatype format recognised by SQLite
+        birthDateEntry.entry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(birthDateEntry.entry, validation.presenceCheck, validation.dateInPastCheck))
         birthDateEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="House").pack()
+        ttk.Label(self.eventForm.formFrame, text="House*").pack()
         houseEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Tower', 'Massereene', 'Tardree', 'Clotworthy'])
+        houseEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(houseEntry, validation.presenceCheck))
         houseEntry.pack()
 
         self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='FormButton.secondary.TButton', command=self.submit)
@@ -651,6 +679,9 @@ class MemberTableView(ttk.Frame):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
         #print(data)
+
+        if data == None: return # If the data is None due to validation, return
+        
         data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'Password1' and update the value of data[2] to the accountID
         database.insertDataIntoMemberTable(self.connection, self.cursor, data)
 
@@ -678,41 +709,45 @@ class MemberTableView(ttk.Frame):
             self.title = ttk.Label(self.eventForm.titleFrame, text='Update Member Info', style='BoldCaption.TLabel')
             self.title.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="First Name").pack()
-            firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="First Name*").pack()
+            firstNameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(firstNameEntry, validation.presenceCheck))
             firstNameEntry.insert(0, data[1])
             firstNameEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Surname").pack()
-            surnameEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Surname*").pack()
+            surnameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(surnameEntry, validation.presenceCheck))
             surnameEntry.insert(0, data[2])
             surnameEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Username").pack()
-            usernameEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Username*").pack()
+            usernameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(usernameEntry, validation.presenceCheck))
             usernameEntry.insert(0, data[3][0])
             usernameEntry.configure(state='readonly')
             usernameEntry.pack()
             ttk.Label(self.eventForm.formFrame, text=data[3][1]).pack()
+            createTooltip(usernameEntry, 'Username cannot be changed')
 
-            ttk.Label(self.eventForm.formFrame, text="Class").pack()
+            ttk.Label(self.eventForm.formFrame, text="Class*").pack()
             classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=classValues)
+            classEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(classEntry, validation.presenceCheck))
             classEntry.set(data[4])
             classEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Email").pack()
-            emailEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Email*").pack()
+            emailEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(emailEntry, validation.presenceCheck, validation.emailFormatCheck))
             emailEntry.insert(0, data[5])
             emailEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Date of Birth").pack()
+            ttk.Label(self.eventForm.formFrame, text="Date of Birth*").pack()
             birthDateEntry = ttk.DateEntry(self.eventForm.formFrame, dateformat=r'%Y-%m-%d') # ie. 2024-01-10, DATE datatype format recognised by SQLite
+            birthDateEntry.entry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(birthDateEntry.entry, validation.presenceCheck, validation.dateInPastCheck))
             birthDateEntry.entry.delete(0, 'end')
             birthDateEntry.entry.insert(0, data[6])
             birthDateEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="House").pack()
+            ttk.Label(self.eventForm.formFrame, text="House*").pack()
             houseEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Tower', 'Massereene', 'Tardree', 'Clotworthy'])
+            houseEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(houseEntry, validation.presenceCheck))
             houseEntry.set(data[7])
             houseEntry.pack()
 
@@ -723,6 +758,8 @@ class MemberTableView(ttk.Frame):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame)
         #print(data)
+        if data == None: return # If the data is None due to validation, return
+
         database.updateMember(self.connection, self.cursor, data, id)
 
         Messagebox.show_info('Member Updated Successfully', 'Success')
@@ -753,7 +790,8 @@ class StaffTableView(ttk.Frame):
             if Messagebox.show_question('Are you sure you want to delete this Staff Member?', 'Delete Staff') == 'Yes':
                 data = self.table.view.item(row, 'values') # get the data from the row
                 # print(data)
-                database.deleteRowWithID(self.connection, self.cursor, 'tbl_Staff', 'staffID', data[0])
+                # database.deleteRowWithID(self.connection, self.cursor, 'tbl_Staff', 'staffID', data[0])
+                database.removeStaff(self.connection, self.cursor, data[0]) # remove the staff member from the database
 
                 self.table.build_table_data(rowdata=database.getAllStaffDetails(self.cursor), coldata=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
         
@@ -764,24 +802,25 @@ class StaffTableView(ttk.Frame):
         self.title = ttk.Label(self.eventForm.titleFrame, text='Add an Staff Member', style='BoldCaption.TLabel')
         self.title.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="First Name").pack()
-        firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="First Name*").pack()
+        firstNameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(firstNameEntry, validation.presenceCheck))
         firstNameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Surname").pack()
-        surnameEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Surname*").pack()
+        surnameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(surnameEntry, validation.presenceCheck))
         surnameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Username, *this will create a new Account\nwith default password 'Password1'", justify='center').pack()
-        usernameEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Username*, (this will create a new Account\nwith default password 'Password1')", justify='center').pack()
+        usernameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(usernameEntry, validation.presenceCheck))
         usernameEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Role").pack()
+        ttk.Label(self.eventForm.formFrame, text="Role*").pack()
         classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Admin', 'Staff'])
+        classEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(classEntry, validation.presenceCheck))
         classEntry.pack()
 
-        ttk.Label(self.eventForm.formFrame, text="Email").pack()
-        emailEntry = ttk.Entry(self.eventForm.formFrame)
+        ttk.Label(self.eventForm.formFrame, text="Email*").pack()
+        emailEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(emailEntry, validation.presenceCheck, validation.emailFormatCheck))
         emailEntry.pack()
 
         self.submitButton = ttk.Button(self.eventForm.buttonsFrame, text="Submit", style='FormButton.secondary.TButton', command=self.submit)
@@ -791,6 +830,8 @@ class StaffTableView(ttk.Frame):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
         #print(data)
+        if data == None: return # If the data is None due to validation, return
+
         data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'Password1' and update the value of data[2] to the accountID
         database.insertDataIntoStaffTable(self.connection, self.cursor, data)
 
@@ -816,30 +857,32 @@ class StaffTableView(ttk.Frame):
             self.title = ttk.Label(self.eventForm.titleFrame, text='Update Staff Info', style='BoldCaption.TLabel')
             self.title.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="First Name").pack()
-            firstNameEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="First Name*").pack()
+            firstNameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(firstNameEntry, validation.presenceCheck))
             firstNameEntry.insert(0, data[1])
             firstNameEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Surname").pack()
-            surnameEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Surname*").pack()
+            surnameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(surnameEntry, validation.presenceCheck))
             surnameEntry.insert(0, data[2])
             surnameEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Username").pack()
-            usernameEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Username*").pack()
+            usernameEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(usernameEntry, validation.presenceCheck))
             usernameEntry.insert(0, data[3][0])
             usernameEntry.configure(state='readonly')
             usernameEntry.pack()
             ttk.Label(self.eventForm.formFrame, text=data[3][1]).pack()
+            createTooltip(usernameEntry, 'Username cannot be changed')
 
-            ttk.Label(self.eventForm.formFrame, text="Role").pack()
+            ttk.Label(self.eventForm.formFrame, text="Role*").pack()
             classEntry = ttk.Combobox(self.eventForm.formFrame, state='readonly', values=['Admin', 'Staff'])
+            classEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(classEntry, validation.presenceCheck))
             classEntry.set(data[4])
             classEntry.pack()
 
-            ttk.Label(self.eventForm.formFrame, text="Email").pack()
-            emailEntry = ttk.Entry(self.eventForm.formFrame)
+            ttk.Label(self.eventForm.formFrame, text="Email*").pack()
+            emailEntry = ttk.Entry(self.eventForm.formFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(emailEntry, validation.presenceCheck, validation.emailFormatCheck))
             emailEntry.insert(0, data[5])
             emailEntry.pack()
 
@@ -850,6 +893,8 @@ class StaffTableView(ttk.Frame):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
         data = self.eventForm.getData(self.eventForm.formFrame)
         #print(data)
+        if data == None: return # If the data is None due to validation, return
+        
         database.updateStaff(self.connection, self.cursor, data, id)
 
         Messagebox.show_info('Staff Member Updated Successfully', 'Success')
@@ -883,22 +928,31 @@ class GenericForm(tk.Toplevel):
         self.closeButton = ttk.Button(self.buttonsFrame, text='Close', style='Close.secondary.TButton', command=self.destroy)
         self.closeButton.pack(side='left', padx=10, pady=10)
     
-    def getData(self, frame: ttk.Frame) -> list:
-        ''' Get the data from the entry widgets within a Frame and return it as a list. '''
+    def getData(self, frame: ttk.Frame) -> list | None:
+        ''' Get the data from the entry widgets within a Frame and return it as a list. Rechecks the validation of the entry widgets - if they are not valid, return None. '''
         data = []
         entries = [entry for entry in frame.winfo_children() if isinstance(entry, (ttk.Entry, ttk.Combobox, ttk.DateEntry, ttk.Menubutton))] # get all entry widgets in the frame
         
         for entry in entries:
             if isinstance(entry, ttk.Combobox): # if the widget is a combobox
+                if not entry.validate(): # if the combobox is not valid
+                    return None # return None to indicate the data is not valid
                 if entry.get().split(' ')[0].isdigit(): # if the first part of the string is a digit denoting an ID
                     data.append(entry.get().split(' ')[0]) # only append the ID, ie. '1 Henderson' -> '1'
                 else: # if the first part of the string is not a digit
                     data.append(entry.get()) # append the whole string, ie. 'Henderson'
+
             elif isinstance(entry, ttk.Menubutton): # if the widget is an Menubutton
                 data.append([var.get() for var in entry.menu.vars if var.get()]) # append the value of each checkbutton in the menu
+
             elif hasattr(entry, 'get'): # if the widget has a get method
+                if not entry.validate(): # if the entry is not valid
+                    return None # return None to indicate that the data is not valid
                 data.append(entry.get())
+
             elif isinstance(entry, ttk.DateEntry): # if the widget is a DateEntry
+                if not entry.entry.validate(): # if the entry is not valid
+                    return None
                 data.append(entry.entry.get()) # get the entry component of the DateEntry widget
         # print(data)
         return data
@@ -1028,36 +1082,55 @@ class Accoridon(ttk.Treeview):
                 print(e)
 
         if item.endswith('.docx'): # If the file is a word document, convert it to a pdf and display it in the pdf viewer
-            if Messagebox.show_question('Would you like to convert this Word Document to a PDF?', 'Convert Word Document') == 'Yes':
-                try:
-                    self.master.contentViewer.destroy() # Destroy the current contentViewer
-                    self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None # Reset the display_msg, frame and text variables
-                    self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
+            if generalFunctions.checkIfFileExists(f'Contents/.temp/{item[:-5]}.pdf'): # If the pdf file already exists
+                self.master.contentViewer.destroy() # Destroy the current contentViewer
+                self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None # Reset the display_msg, frame and text variables
+                self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
 
+                pdfPath = generalFunctions.resourcePath(f'Contents/.temp/{item[:-5]}.pdf') # Create the filepath to the pdf file that was converted already
+
+                self.master.contentViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=pdfPath) # Create a new pdf viewer
+                self.master.contentViewer.pack(side='top', fill='both', expand=True)
+
+                self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
+
+                if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
+                    self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                    self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
+
+                self.master.exportButton.configure(state='normal') # Enable the export button
+                self.master.exportButton.configure(command=lambda: self.showMessageboxCallback(generalFunctions.copyFile(filePath))) # Set the export button to export the clicked file
+            else: # If the pdf file does not exist
+                if Messagebox.show_question('Would you like to convert this Word Document to a PDF? This will require Microsoft Word installed.', 'Convert Word Document') == 'Yes':
                     try:
-                        docx2pdf.convert(filePath, generalFunctions.resourcePath('Contents/.temp'), hide_progress=True) # Convert the docx file to a pdf file inside the .temp folder
-                        pdfPath = generalFunctions.resourcePath(f'Contents/.temp/{item[:-5]}.pdf') # Create the filepath to the pdf file that was converted
+                        self.master.contentViewer.destroy() # Destroy the current contentViewer
+                        self.master.pdfObject.display_msg, self.master.pdfObject.frame, self.master.pdfObject.text = None, None, None # Reset the display_msg, frame and text variables
+                        self.master.pdfObject.img_object_li.clear() # Clear the list of images already stored from previous pdf
 
-                        self.master.contentViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=pdfPath) # Create a new pdf viewer
-                        self.master.contentViewer.pack(side='top', fill='both', expand=True)
+                        try:
+                            docx2pdf.convert(filePath, generalFunctions.resourcePath('Contents/.temp'), hide_progress=True) # Convert the docx file to a pdf file inside the .temp folder
+                            pdfPath = generalFunctions.resourcePath(f'Contents/.temp/{item[:-5]}.pdf') # Create the filepath to the pdf file that was converted
+
+                            self.master.contentViewer = self.master.pdfObject.pdf_view(self.master.contentFrame, bar=False, pdf_location=pdfPath) # Create a new pdf viewer
+                            self.master.contentViewer.pack(side='top', fill='both', expand=True)
+                        except Exception as e:
+                            Messagebox.show_error('Error converting Word Document to PDF!\n\nYou will require Microsoft Word installed on this device to convert.', 'Error')
+
+                        self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
+
+                        if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
+                            self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
+                            self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
+
+                        self.master.exportButton.configure(state='normal') # Enable the export button
+                        self.master.exportButton.configure(command=lambda: self.showMessageboxCallback(generalFunctions.copyFile(filePath))) # Set the export button to export the clicked file
                     except Exception as e:
-                        Messagebox.show_error('Error converting Word Document to PDF!\n\nYou will require Microsoft Word installed on this device to convert.', 'Error')
-
-                    self.master.contentName.configure(text=item) # Set the contentName label to the name of the file
-
-                    if ACCESS_LEVEL in ['Admin', 'Senior']: # If the user is an admin or Senior member, enable the open file location button
-                        self.master.openFileLocButton.configure(state='normal') # Enable the open file location button
-                        self.master.openFileLocButton.configure(command=lambda: generalFunctions.showFileExplorer(filePath)) # Set the open file location button to open the clicked file
-
-                    self.master.exportButton.configure(state='normal') # Enable the export button
-                    self.master.exportButton.configure(command=lambda: self.showMessageboxCallback(generalFunctions.copyFile(filePath))) # Set the export button to export the clicked file
-                except Exception as e:
-                    print(e)
+                        print(e)
             
     def showMessageboxCallback(self, functionToExecute):
         ''' Execute a function and show the message box with the result of the function. '''
         lambda: functionToExecute() # Execute the function
-        Messagebox.show_info('File has been saved to your Destop!', 'File Exported Successfully')
+        Messagebox.show_info('File has been saved to your Desktop!', 'File Exported Successfully')
 
 class FAQAccordion(ttk.Treeview):
     ''' Class to create the FAQ accordion menu, allowing the user to see all the areas to view FAQ pages for. '''
@@ -1102,10 +1175,13 @@ class SettingsAccordion(ttk.Treeview):
         itemIID = event.widget.selection()[0] # Get the item that was clicked
         item = event.widget.item(itemIID, 'text') # Get the text of the item that was clicked
 
-        text = self.data[item] # Get the text that corresponds to the clicked heading
+        frameCreationFunction = self.data[item] # Get the frame function that corresponds to the clicked heading
 
-        self.master.titleLabel.configure(text=item) # Set the titleLabel to the text of the clicked heading
-        self.master.contentLabel.configure(text=text) # Set the contentLabel to the text that corresponds to the clicked heading
+        # clear the current frame
+        for widget in self.master.contentFrame.winfo_children():
+            widget.destroy()
+        
+        frameCreationFunction() # Create the frame that corresponds to the clicked heading
 
 # Adapted from https://github.com/PaulleDemon/tkVideoPlayer/blob/master/examples/sample_player.py
 class videoPlayer(ttk.Frame):

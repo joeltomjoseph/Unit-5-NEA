@@ -1,10 +1,10 @@
 ''' General functions that are used throughout the program. '''
-import os
+import os, stat
 import sys
 import platform
 import subprocess
 import shutil
-import smtplib, ssl
+import smtplib
 import random
 from docx import Document
 from docx.shared import Pt
@@ -68,6 +68,13 @@ def copyFile(file):
     # destinationPath = resourcePath(destination)
     shutil.copy2(filePath, desktop)
 
+def createTempFolder():
+    ''' Used to create the hidden .temp folder used to store converted .docx if it doesnt exist '''
+    folderPath = resourcePath('Contents/.temp')
+
+    if not os.path.exists(folderPath):
+        os.mkdir(folderPath) # Create the folder
+
 def clearFolder(folder):
     ''' Function to clear the contents of a folder. '''
     folderPath = resourcePath(folder)
@@ -77,6 +84,11 @@ def clearFolder(folder):
             os.unlink(itemPath)
         elif os.path.isdir(itemPath):
             shutil.rmtree(itemPath)
+
+def checkIfFileExists(file) -> bool:
+    ''' Function to check if a file exists in the temp folder. '''
+    filePath = resourcePath(file)
+    return os.path.exists(filePath)
 
 def sendEmail(receiver, message):
     ''' Function to send an email. '''

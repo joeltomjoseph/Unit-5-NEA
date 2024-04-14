@@ -20,7 +20,7 @@ def createStaffTable(cursor: sql.Cursor):
         accountID INTEGER,
         role VARCHAR(10),
         staffEmail VARCHAR(50),
-        FOREIGN KEY (accountID) REFERENCES tbl_Accounts(accountID)
+        FOREIGN KEY (accountID) REFERENCES tbl_Accounts(accountID) ON DELETE CASCADE
     );'''
     cursor.execute(sql)
 
@@ -36,7 +36,7 @@ def createPupilTable(cursor: sql.Cursor):
         studentEmail VARCHAR(50),
         classID INTEGER,
         house VARCHAR(15),
-        FOREIGN KEY (accountID) REFERENCES tbl_Accounts(accountID),
+        FOREIGN KEY (accountID) REFERENCES tbl_Accounts(accountID) ON DELETE CASCADE,
         FOREIGN KEY (classID) REFERENCES tbl_Classes(classID)
     );'''
     cursor.execute(sql)
@@ -63,7 +63,7 @@ def createEventTable(cursor: sql.Cursor):
         requestedBy INTEGER,
         locationID INTEGER,
         requirements VARCHAR(50),
-        FOREIGN KEY (requestedBy) REFERENCES tbl_Staff(staffID),
+        FOREIGN KEY (requestedBy) REFERENCES tbl_Staff(staffID) ON DELETE SET NULL,
         FOREIGN KEY (locationID) REFERENCES tbl_Locations(locationID)
     );'''
     cursor.execute(sql)
@@ -84,8 +84,8 @@ def createSetupGroupsTable(cursor: sql.Cursor):
         eventID INTEGER,
         pupilID INTEGER,
         PRIMARY KEY (eventID, pupilID),
-        FOREIGN KEY (eventID) REFERENCES tbl_Events(eventID),
-        FOREIGN KEY (pupilID) REFERENCES tbl_Pupils(memberID)
+        FOREIGN KEY (eventID) REFERENCES tbl_Events(eventID) ON DELETE CASCADE,
+        FOREIGN KEY (pupilID) REFERENCES tbl_Pupils(memberID) ON DELETE CASCADE
     );'''
     cursor.execute(sql)
 
@@ -181,6 +181,16 @@ def updateEvent(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
     sql = f"INSERT INTO tbl_SetupGroups(eventID, pupilID) VALUES (?, ?)"
     cursor.executemany(sql, setupGroupsData)
     connection.commit()
+
+def removeEvent(connection: sql.Connection, cursor: sql.Cursor, id):
+    ''' Function to remove an event from the 'tbl_Events' table along with the SetupGroups table. '''
+    sql = f"DELETE FROM tbl_Events WHERE eventID={id}"
+    cursor.execute(sql)
+    connection.commit()
+
+    # sql = f"DELETE FROM tbl_SetupGroups WHERE eventID={id}"
+    # cursor.execute(sql)
+    # connection.commit()
 
 def joinSetupGroup(connection: sql.Connection, cursor: sql.Cursor, eventID, memberID):
     ''' Function to join a Senior/Junior pupil to a setup group. '''
@@ -281,6 +291,14 @@ def getAllMemberDetails(cursor: sql.Cursor) -> list:
     rows = cursor.fetchall()
     return rows
 
+def getMemberDetails(cursor: sql.Cursor, id: int) -> list:
+    ''' Function to get the details of a member based on their accountID. '''
+    sql = f'''SELECT tbl_Pupils.memberID, tbl_Pupils.firstName, tbl_Pupils.surname, tbl_Accounts.username, tbl_Pupils.classID, tbl_Pupils.studentEmail, tbl_Pupils.dateOfBirth, tbl_Pupils.house
+        FROM tbl_Pupils INNER JOIN tbl_Accounts ON tbl_Pupils.accountID = tbl_Accounts.accountID WHERE tbl_Pupils.accountID=?; '''
+    cursor.execute(sql, (id,))
+    row = cursor.fetchone()
+    return row
+
 def getClassesandIDs(cursor: sql.Cursor) -> list:
     ''' Function to get the ids and names of all Classes. '''
     sql = f"SELECT classID, yearGroup, registrationClass FROM tbl_Classes"
@@ -302,6 +320,12 @@ def updateMember(connection: sql.Connection, cursor: sql.Cursor, data: list, id)
     cursor.execute(sql, data)
     connection.commit()
 
+def removeMember(connection: sql.Connection, cursor: sql.Cursor, id):
+    ''' Function to remove a member from the 'tbl_Pupils' table. '''
+    sql = f"DELETE FROM tbl_Pupils WHERE memberID={id}"
+    cursor.execute(sql)
+    connection.commit()
+
 def getAllStaffDetails(cursor: sql.Cursor) -> list:
     ''' Function to get the details of all staff members. Gets relevant details to be displayed on the Staff Page. '''
     sql = f'''SELECT tbl_Staff.staffID, tbl_Staff.firstName, tbl_Staff.surname, tbl_Accounts.username, tbl_Staff.role, tbl_Staff.staffEmail
@@ -309,6 +333,14 @@ def getAllStaffDetails(cursor: sql.Cursor) -> list:
     cursor.execute(sql)
     rows = cursor.fetchall()
     return rows
+
+def getStaffDetails(cursor: sql.Cursor, id: int) -> list:
+    ''' Function to get the details of a staff member based on their AccountID. '''
+    sql = f'''SELECT tbl_Staff.staffID, tbl_Staff.firstName, tbl_Staff.surname, tbl_Accounts.username, tbl_Staff.role, tbl_Staff.staffEmail
+        FROM tbl_Staff INNER JOIN tbl_Accounts ON tbl_Staff.accountID = tbl_Accounts.accountID WHERE tbl_Staff.accountID=?; '''
+    cursor.execute(sql, (id,))
+    row = cursor.fetchone()
+    return row
 
 def insertDataIntoStaffTable(connection: sql.Connection, cursor: sql.Cursor, data: list):
     ''' Function to insert data into the 'tbl_Staff' table. '''
@@ -320,6 +352,12 @@ def updateStaff(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
     ''' Function to update a staff member in the 'tbl_Staff' table. '''
     sql = f"UPDATE tbl_Staff SET firstName=?, surname=?, accountID=?, role=?, staffEmail=? WHERE staffID={id}"
     cursor.execute(sql, data)
+    connection.commit()
+
+def removeStaff(connection: sql.Connection, cursor: sql.Cursor, id):
+    ''' Function to remove a staff member from the 'tbl_Staff' table. '''
+    sql = f"DELETE FROM tbl_Staff WHERE staffID={id}"
+    cursor.execute(sql)
     connection.commit()
 
 def createAccount(connection: sql.Connection, cursor: sql.Cursor, username: list[str]) -> int:
@@ -362,6 +400,19 @@ def getUserEmail(cursor: sql.Cursor, accountID: int) -> str:
     if row == None:
         sql = f"SELECT staffEmail FROM tbl_Staff WHERE accountID=?"
         cursor.execute(sql, (accountID,))
+        row = cursor.fetchone()
+
+    return row[0]
+
+def getUserEmailWithUserID(cursor: sql.Cursor, userID: int) -> str:
+    ''' Function to get the email of a user with a given userID. '''
+    sql = f"SELECT studentEmail FROM tbl_Pupils WHERE memberID=?"
+    cursor.execute(sql, (userID,))
+    row = cursor.fetchone()
+
+    if row == None:
+        sql = f"SELECT staffEmail FROM tbl_Staff WHERE staffID=?"
+        cursor.execute(sql, (userID,))
         row = cursor.fetchone()
 
     return row[0]

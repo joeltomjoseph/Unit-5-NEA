@@ -141,14 +141,14 @@ class LoginPage(ui.PageStructure):
         # Set up the username label and field
         self.usernameLabel = ttk.Label(self.canvasItemsFrame, text="Username")
         self.usernameLabel.pack(pady=10)
-        self.usernameField = ttk.Entry(self.canvasItemsFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.usernameField, validation.validateUsername))
+        self.usernameField = ttk.Entry(self.canvasItemsFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: validation.validationCallback(self.usernameField, validation.validateUsername))
         self.usernameField.pack(pady=5, padx=20)
         self.usernameField.focus_set()
         
         # Set up the password label, field, and show password toggle
         self.passwordLabel = ttk.Label(self.canvasItemsFrame, text="Password")
         self.passwordLabel.pack(pady=10)
-        self.passwordField = ttk.Entry(self.canvasItemsFrame, font=ui.TEXT_ENTRY_FONT, show="*", validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordField, validation.validatePassword))
+        self.passwordField = ttk.Entry(self.canvasItemsFrame, font=ui.TEXT_ENTRY_FONT, show="*", validate='focusout', validatecommand=lambda: validation.validationCallback(self.passwordField, validation.validatePassword))
         self.passwordField.pack(pady=5)
         
         self.showPasswordVar = tk.BooleanVar()
@@ -170,10 +170,6 @@ class LoginPage(ui.PageStructure):
         self.title = self.canvas.create_window(self.winfo_screenwidth()/2, (self.winfo_screenheight()/2)+100, anchor='center', window=self.titleLabel)
         self.frame = self.canvas.create_window(self.winfo_screenwidth()/2, self.winfo_screenheight()/2, anchor='center', window=self.canvasItemsFrame)
         self.canvas.bind('<Configure>', self.resizeCanvas) # Bind the resizeCanvas function to the canvas resizing event
-    
-    def validationCallback(self, widget, validationRoutine):
-        ''' Callback function to validate the input in the given widget using the given validation routine. '''
-        return validationRoutine(widget, widget.get())
 
     def resizeImage(self, event):
         ''' Resize the background image to fit the canvas '''
@@ -315,12 +311,12 @@ class LoginPage(ui.PageStructure):
 
             self.passwordLabel = ttk.Label(self.entryFrame, text='New Password')
             self.passwordLabel.pack(padx=10, pady=5)
-            self.passwordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordEntry, validation.validatePassword))
+            self.passwordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: validation.validationCallback(self.passwordEntry, validation.validatePassword))
             self.passwordEntry.pack(padx=10, pady=10)
 
             self.confirmPasswordLabel = ttk.Label(self.entryFrame, text='Confirm Password')
             self.confirmPasswordLabel.pack(padx=10, pady=5)
-            self.confirmPasswordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.confirmPasswordEntry, validation.validatePassword))
+            self.confirmPasswordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: validation.validationCallback(self.confirmPasswordEntry, validation.validatePassword))
             self.confirmPasswordEntry.pack(padx=10, pady=10)
 
             self.resetPasswordButton = ttk.Button(self.resetPasswordWindow, text='Reset Password', style='Login.secondary.TButton', command=self.resetPassword)
@@ -365,12 +361,12 @@ class LoginPage(ui.PageStructure):
 
         self.passwordLabel = ttk.Label(self.entryFrame, text='New Password')
         self.passwordLabel.pack(padx=10, pady=5)
-        self.passwordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.passwordEntry, validation.validatePassword))
+        self.passwordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: validation.validationCallback(self.passwordEntry, validation.validatePassword))
         self.passwordEntry.pack(padx=10, pady=10)
 
         self.confirmPasswordLabel = ttk.Label(self.entryFrame, text='Confirm Password')
         self.confirmPasswordLabel.pack(padx=10, pady=5)
-        self.confirmPasswordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: self.validationCallback(self.confirmPasswordEntry, validation.validatePassword))
+        self.confirmPasswordEntry = ttk.Entry(self.entryFrame, font=ui.TEXT_ENTRY_FONT, validate='focusout', validatecommand=lambda: validation.validationCallback(self.confirmPasswordEntry, validation.validatePassword))
         self.confirmPasswordEntry.pack(padx=10, pady=10)
 
         self.updatePasswordButton = ttk.Button(self.updatePasswordWindow, text='Update Password', style='Login.secondary.TButton', command=lambda: self.updatePassword(accountID))
@@ -470,7 +466,7 @@ class Dashboard(ui.PageStructure):
         self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='ItalicCaption.TLabel')
         self.userLabel.pack(side='left', expand=True)
 
-        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.5', style='ItalicCaption.TLabel')
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.6', style='ItalicCaption.TLabel')
         self.versionLabel.pack(side='right', expand=True)
 
         self.timeLabel = ttk.Label(self.bottomFrame, text='', style='ItalicCaption.TLabel')
@@ -566,14 +562,23 @@ class MemberandStaffInformationPage(ui.PageStructure):
         self.tabbedFrame.add(self.statisticsFrame.container, text='Member Statistics')
 
         # Create the graphs for the statistics, TODO - Add more statistics
+        self.createGraphs()
+
+        # Create the staff information table
+        self.staffTable = ui.StaffTableView(self.tabbedFrame, controller, connection, cursor, rowData=database.getAllStaffDetails(cursor), columnData=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
+        self.tabbedFrame.add(self.staffTable, text='Staff Information')
+
+    def createGraphs(self):
+        ''' Used to create the all graphs for the statistics tab. Also removes and updates the graphs every 20 seconds.'''
+        for widget in self.statisticsFrame.winfo_children(): # Remove all widgets from the frame
+            widget.destroy()
+
         self.showMostActiveMembers()
         self.showMostActiveHouses()
         self.showMostFrequentRequesters()
         self.showPopularLocations()
 
-        # Create the staff information table
-        self.staffTable = ui.StaffTableView(self.tabbedFrame, controller, connection, cursor, rowData=database.getAllStaffDetails(cursor), columnData=['Staff ID', 'First Name', 'Surname', 'Username', 'Role', 'Staff Email'])
-        self.tabbedFrame.add(self.staffTable, text='Staff Information')
+        self.after(20000, self.createGraphs) # Call the function again after 20 seconds to update the graphs
 
     def showMostActiveMembers(self):
         ''' Query the database for the members who have set up the most events and create a bar graph showing the results. '''
@@ -870,52 +875,232 @@ class SettingsPage(ui.PageStructure):
     def __init__(self, parent, controller: MainApp):
         super().__init__(parent, controller)
 
-        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard)
+        self.menuBar = ui.MenuBar(self, controller, FAQPage, Dashboard).place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
 
-        self.contentFrame = ttk.Frame(self, style='TFrame')
-        self.contentFrame.pack(side='top', fill='both', expand=True)
+        self.mainFrame = ttk.Frame(self, style='TFrame')
+        self.mainFrame.place(relx=0.3, rely=0.1, relwidth=0.7, relheight=0.9, anchor='nw')
 
-        self.loginButton = ttk.Button(self.contentFrame, text='Settings rahhh', command=lambda: controller.showFrame(Dashboard), style='TButton')
-        self.loginButton.pack()
+        data = {
+            #'General': self.generalSettingsFrame, TODO - Add the general settings frame
+            'Personal Details': self.personalDetailsFrame,
+            'Private Study Periods': self.privateStudyPeriodsFrame
+        }
+        self.accordion = ui.SettingsAccordion(self, controller=controller, data=data)
+        self.accordion.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.9, anchor='nw')
 
-        self.label = ttk.Label(self.contentFrame, text='Hey', style='TLabel')
-        self.label.pack()
-        self.label2 = ttk.Label(self.contentFrame, text='Does this work??', style='TLabel')
-        self.label2.pack()
+        self.titleFrame = ttk.Frame(self.mainFrame, style='TFrame')
+        self.titleFrame.place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
+        self.titleLabel = ttk.Label(self.mainFrame, text='Click a Heading to view Details', style='Heading2.TLabel', justify='center')
+        self.titleLabel.pack()
+
+        self.contentFrame = ttk.Frame(self.mainFrame, style='TFrame')
+        self.contentFrame.place(relx=0, rely=0.1, relwidth=1, relheight=0.9, anchor='nw')
+
+    def generalSettingsFrame(self):
+        ''' Function to create the general settings frame. '''
+        self.titleLabel.configure(text='General Settings')
+        self.settingsFrame = ScrolledFrame(self.contentFrame, style='TFrame')
+        self.settingsFrame.pack(fill='both', expand=True)
+
+    def personalDetailsFrame(self):
+        ''' Function to create the personal details frame. '''
+        self.titleLabel.configure(text='Personal Details')
+        self.personalFrame = ScrolledFrame(self.contentFrame, style='TFrame')
+        self.personalFrame.pack(side='top', fill='both', expand=True)
+
+        if ui.ACCESS_LEVEL in ['Admin', 'Head of the Team', 'Staff']:
+            self.createStaffFormWidgets()
+        else:
+            self.createPupilFormWidgets()
+
+    def createStaffFormWidgets(self):
+        ''' Function to allow the admin/staff to edit their personal details. '''
+        data = list(database.getStaffDetails(cursor, ui.ACCOUNT_ID))
+
+        accountValues = [account.split(': ') for account in database.getAccountsAndIDs(cursor)] # ie. [['1', 'jjoseph553'], ['2', 'bjohnston123']]
+        data[3] = [account for account in accountValues if account[1] == data[3]][0] # replace the name with the id and username of the account
+
+        ttk.Label(self.personalFrame, text="", style='ItalicCaption.TLabel').pack()
+
+        ttk.Label(self.personalFrame, text="First Name*").pack()
+        firstNameEntry = ttk.Entry(self.personalFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(firstNameEntry, validation.presenceCheck))
+        firstNameEntry.insert(0, data[1])
+        firstNameEntry.pack()
+
+        ttk.Label(self.personalFrame, text="Surname*").pack()
+        surnameEntry = ttk.Entry(self.personalFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(surnameEntry, validation.presenceCheck))
+        surnameEntry.insert(0, data[2])
+        surnameEntry.pack()
+
+        ttk.Label(self.personalFrame, text="Username*").pack()
+        usernameEntry = ttk.Entry(self.personalFrame)
+        usernameEntry.insert(0, data[3][0])
+        usernameEntry.configure(state='readonly')
+        usernameEntry.pack()
+        ttk.Label(self.personalFrame, text=data[3][1]).pack()
+        ui.createTooltip(usernameEntry, 'Your Username cannot be changed.')
+
+        ttk.Label(self.personalFrame, text="Role*").pack()
+        roleEntry = ttk.Combobox(self.personalFrame, state='readonly', values=['Admin', 'Staff'])
+        roleEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(roleEntry, validation.presenceCheck))
+        roleEntry.set(data[4])
+        roleEntry.configure(state='readonly')
+        roleEntry.pack()
+        ui.createTooltip(roleEntry, 'Your Role cannot be changed.')
+
+        ttk.Label(self.personalFrame, text="Email*").pack()
+        emailEntry = ttk.Entry(self.personalFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(emailEntry, validation.presenceCheck, validation.emailFormatCheck))
+        emailEntry.insert(0, data[5])
+        emailEntry.pack()
+
+        for widget in self.personalFrame.winfo_children(): # Loop through all the widgets in the personalFrame
+            widget.pack_configure(pady=5) # Add padding to each widget
+
+        self.submitButton = ttk.Button(self.personalFrame, text="Update", style='FormButton.secondary.TButton', command=lambda: self.updateStaff(id=data[0]))
+        self.submitButton.pack(padx=10, pady=10)
+
+    def updateStaff(self, id):
+        ''' Function to update the staff member's details in the database. '''
+        data = ui.GenericForm.getData(None, self.personalFrame)
+
+        if data == None: return # If the data is None due to validation, return
+        
+        database.updateStaff(connection, cursor, data, id)
+
+        messagebox.showinfo('Success', 'Your Details have been Updated Successfully.')
+
+        for widget in self.personalFrame.winfo_children(): # Loop through all the widgets in the personalFrame
+            widget.destroy() # Destroy each widget
+
+        self.createStaffFormWidgets() # Call the function to create the form widgets again, clearing the page and refreshing the data
+
+    def createPupilFormWidgets(self):
+        ''' Function to allow pupils to edit their personal details. '''
+        data = list(database.getMemberDetails(cursor, ui.ACCOUNT_ID))
+        
+        classValues = [clss.split(': ') for clss in database.getClassesandIDs(cursor)] # ie. [['1', '14S'], ['2', '14T'], ['3', '14E'], ['4', '14P']]
+        accountValues = [account.split(': ') for account in database.getAccountsAndIDs(cursor)] # ie. [['1', 'jjoseph553'], ['2', 'bjohnston123']]
+
+        data[3] = [account for account in accountValues if account[1] == data[3]][0] # replace the name with the id and username of the account
+        data[4] = [cls for cls in classValues if cls[0] == str(data[4])][0] # replace the id with the id and name of the class
+        # print(data)
+
+        ttk.Label(self.personalFrame, text="First Name*").pack()
+        firstNameEntry = ttk.Entry(self.personalFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(firstNameEntry, validation.presenceCheck))
+        firstNameEntry.insert(0, data[1])
+        firstNameEntry.pack()
+
+        ttk.Label(self.personalFrame, text="Surname*").pack()
+        surnameEntry = ttk.Entry(self.personalFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(surnameEntry, validation.presenceCheck))
+        surnameEntry.insert(0, data[2])
+        surnameEntry.pack()
+
+        ttk.Label(self.personalFrame, text="Username*").pack()
+        usernameEntry = ttk.Entry(self.personalFrame)
+        usernameEntry.insert(0, data[3][0])
+        usernameEntry.configure(state='readonly')
+        usernameEntry.pack()
+        ttk.Label(self.personalFrame, text=data[3][1]).pack()
+        ui.createTooltip(usernameEntry, 'Your Username cannot be changed.')
+
+        ttk.Label(self.personalFrame, text="Class*").pack()
+        classEntry = ttk.Combobox(self.personalFrame, state='readonly', values=classValues)
+        classEntry.set(data[4])
+        classEntry.configure(state='readonly')
+        classEntry.pack()
+        ui.createTooltip(classEntry, 'Your Class cannot be changed.')
+
+        ttk.Label(self.personalFrame, text="Email*").pack()
+        emailEntry = ttk.Entry(self.personalFrame, validate='focusout', validatecommand=lambda: validation.validationCallback(emailEntry, validation.presenceCheck, validation.emailFormatCheck))
+        emailEntry.insert(0, data[5])
+        emailEntry.pack()
+
+        ttk.Label(self.personalFrame, text="Date of Birth*").pack()
+        birthDateEntry = ttk.DateEntry(self.personalFrame, dateformat=r'%Y-%m-%d') # ie. 2024-01-10, DATE datatype format recognised by SQLite
+        birthDateEntry.entry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(birthDateEntry.entry, validation.presenceCheck, validation.dateInPastCheck))
+        birthDateEntry.entry.delete(0, 'end')
+        birthDateEntry.entry.insert(0, data[6])
+        birthDateEntry.pack()
+
+        ttk.Label(self.personalFrame, text="House*").pack()
+        houseEntry = ttk.Combobox(self.personalFrame, state='readonly', values=['Tower', 'Massereene', 'Tardree', 'Clotworthy'])
+        houseEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(houseEntry, validation.presenceCheck))
+        houseEntry.set(data[7])
+        houseEntry.pack()
+
+        for widget in self.personalFrame.winfo_children(): # Loop through all the widgets in the personalFrame
+            widget.pack_configure(pady=5) # Add padding to each widget
+
+        self.submitButton = ttk.Button(self.personalFrame, text="Update", style='FormButton.secondary.TButton', command=lambda: self.updatePupil(id=data[0]))
+        self.submitButton.pack(padx=10, pady=10)
+
+    def updatePupil(self, id):
+        ''' Function to update the pupil's details in the database. '''
+        data = ui.GenericForm.getData(None, self.personalFrame)
+
+        if data == None: return # If the data is None due to validation, return
+        
+        database.updateMember(connection, cursor, data, id)
+
+        messagebox.showinfo('Success', 'Your Details have been Updated Successfully.')
+
+        for widget in self.personalFrame.winfo_children(): # Loop through all the widgets in the personalFrame
+            widget.destroy() # Destroy each widget
+
+        self.createPupilFormWidgets() # Call the function to create the form widgets again, clearing the page and refreshing the data
+
+    def privateStudyPeriodsFrame(self):
+        ''' Function to create the private study periods frame. '''
+        self.titleLabel.configure(text='Private Study Periods')
+        self.privateStudyFrame = ScrolledFrame(self.contentFrame, style='TFrame')
+        self.privateStudyFrame.pack(side='top', fill='both', expand=True)
+
+        self.comingSoon = ttk.Label(self.privateStudyFrame, text='Coming Soon!', style='Heading2.TLabel', justify='center')
+        self.comingSoon.pack()
 
 class FAQPage(ttk.Toplevel):
     def __init__(self, parent, controller: MainApp):
         super().__init__(parent)
         self.title('FAQ - Help')
-        self.geometry('820x600')
-        self.minsize(820, 600)
+        self.geometry('960x600')
+        self.minsize(960, 600)
         self.iconphoto(True, tk.PhotoImage(file=generalFunctions.resourcePath('Contents/images/ags.png')))
 
         self.mainFrame = ttk.Frame(self, style='TFrame')
         self.mainFrame.place(relx=0.3, rely=0, relwidth=0.7, relheight=1, anchor='nw')
 
-        data = { # Data for the accordion and main content TODO - Complete this to show the correct information
-            'General': 'This is the general section',
-            'Login Page': 'What is this?',
-            'Upcoming Events': 'What is this?',
-            'Dashboard': 'This is the dashboard',
-            'Member and Staff Information': 'This is the member and staff information',
-            'Archive': 'This is the archive',
-            'Connect to Soundboard': 'This is the connect to soundboard',
-            'Training Materials': 'This is the training materials',
-            'Settings': 'This is the settings',
-            'FAQ': 'This is the FAQ'
+        data = { # Data for the accordion and main content
+            'General': 
+            '''This software is used to manage the school\'s assemblies/events along with documentation and statistics. The Admin/Head of the Team can access all features including;\n\t- Creating Random Rotas\n\t- Managing (Adding/Editing and Removing) Members and Staff\n\t- Viewing Statistics\n\t- Managing (Adding/Editing and Removing) Events\n\t- Managing all Documentation\n\t- Connecting to and controlling the Soundboard\n\n
+            Staff can access the following features;\n\t- Managing (Adding/Editing and Removing) Events\n\t- Viewing Current Documentation\n\t- Connecting to and controlling the Soundboard\n\n
+            Senior Pupils can access the following features;\n\t- Viewing All Events and assigning themselves to an event\n\t- Managing all Documentation\n\t- Connecting to and controlling the Soundboard\n\n
+            Junior Pupils can access the following features;\n\t- Viewing All Events and assigning themselves to an event\n\t- Viewing Current Documentation\n\t- Connecting to and controlling the Soundboard\n\n''',
+            'Login Page': '''This page allows you to reset your password using the Forgot Password button, this will prompt you to enter your username along with it's associated email and date of birth to verify that the account is yours. An email will then be sent with a random code - enter the code correctly and you will be able to set a new password.''',
+            'Dashboard': '''The Dashboard has buttons to the rest of the program - depending on the user's access level, certain buttons will be disabled. ''',
+            'Upcoming Events': '''This Page shows a table that can either display all events stored in the system or the upcoming events (from today onwards) using a toggle at the top "Show All Events".\n\nIf the user is a staff member (Admin/Staff/Head of the Team), the buttons on the top will be Add/Edit and Delete Events. If the user is a pupil (Junior or Senior), those buttons will be replaced with a single button to join/leave the setup group for the selected event.\n\nUsers are also able to search through all records using teh search bar and sort the results by clicking on the column heading.''',
+            'View Working Documentation': '''Shows documentation stored in the Current Working Documentation folder. Videos do not play audio. If the user is an Admin/Head of the Team, an extra button will be shown allowing them to Generate a New Random Rota - this will randomly choose members in the database and create a Word Document for a 2 week rota in both the Stinson Hall and Sports Hall. This is created from a template stored in the Templates Folder.''',
+            'Member and Staff Information': '''Allows the user to view all pupils, staff and statistics in the system. Only available to Admins/Head of the Team. 3 buttons to Add/Edit or Delete pupils/Staff.''',
+            'Archive': '''Shows documentation stored in the Archive Folder.''',
+            'Connect to Soundboard': '''This functionality only works when this device is connected to the QU-24 Soundboard directly using a USB-B connection. Allows users to Mute/Unmute specific channels on the board and also has a button to change multiple channels and set their volume to "Setup for Assembly". This unmutes and sets the volume of the channels most likely to be used during an average assembly.\n\nAdditionally, it allows users to record audio directly from the board (the output that is routed to the speakers will be recorded). This will be saved to the Recordings Folder.''',
+            'Training Materials': '''This shows the documentation related to Training stored in the Training Materials folder. This includes Videos and Manuals.''',
+            'Settings': '''This settings page allows users to change their own personal details (where applicable; cannot change what class they are in etc.).\n\n Future functionality includes General Settings like colour scheme or font size. Also the ability to add Private Study Periods for students to allow a Free Period Table to be created for Staff.''',
         }
         self.accordion = ui.FAQAccordion(self, controller=controller, data=data)
         self.accordion.place(relx=0, rely=0, relwidth=0.3, relheight=1, anchor='nw')
 
-        self.titleLabel = ttk.Label(self.mainFrame, text='Click a Heading to view Details', style='file.TLabel')
-        self.titleLabel.place(relx=0.35, rely=0, relwidth=1, relheight=0.1, anchor='nw')
-        self.contentLabel = ttk.Label(self.mainFrame, text='', style='paragraph.TLabel', wraplength=700, justify='left', anchor='nw')
-        self.contentLabel.place(relx=0, rely=0.1, relwidth=1, relheight=0.9, anchor='nw')
+        self.titleFrame = ttk.Frame(self.mainFrame, style='TFrame')
+        self.titleFrame.place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor='nw')
+        self.titleLabel = ttk.Label(self.mainFrame, text='Click a Heading to view Details', style='Heading2.TLabel')
+        self.titleLabel.pack()
+        
+        self.contentFrame = ScrolledFrame(self.mainFrame, style='TFrame', autohide=True)
+        self.contentFrame.place(relx=0, rely=0.1, relwidth=1, relheight=0.9, anchor='nw')
+        self.contentLabel = ttk.Label(self.mainFrame, text='', style='paragraph.TLabel', wraplength=650, justify='left', anchor='nw')
+        self.contentLabel.pack(side='left', fill='both', expand=True)
 
 ''' Main Program '''
 #CONSTANTS
+generalFunctions.createTempFolder() # Create the temp folder if it doesnt exist
 connection = sql.connect(generalFunctions.resourcePath("Contents/TestDatabase.db"))  # Establish a connection to the database
 cursor = connection.cursor() # Create a cursor object to execute SQL queries
 database.createAllTables(cursor) # Create all the tables in the database if they don't already exist

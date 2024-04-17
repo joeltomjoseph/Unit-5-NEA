@@ -1,5 +1,5 @@
 ''' General functions that are used throughout the program. '''
-import os, stat
+import os
 import sys
 import platform
 import subprocess

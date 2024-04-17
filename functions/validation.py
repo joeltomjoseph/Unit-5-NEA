@@ -10,17 +10,16 @@ def validationCallback(widget, *validationRoutines):
     return True # If all routines pass, return True
     # return validationRoutine(widget, widget.get())
 
-# Function to check if data passed in is present
 def presenceCheck(widget, data: list) -> bool:
     ''' Check if all fields in a list of data are present, 
     this can also be used to check if a single value is present by passing in a single value '''
     if data == '' or data == None:
-        ui.createTooltip(widget, 'All fields must be filled in.', onWidget=True, error=True)
+        ui.createTooltip(widget, 'This field must be filled in.', onWidget=True, error=True)
         return False
     
     for field in data:
         if field == '' or field == None:
-            ui.createTooltip(widget, 'All fields must be filled in.', onWidget=True, error=True)
+            ui.createTooltip(widget, 'This field must be filled in.', onWidget=True, error=True)
             return False
     return True
 

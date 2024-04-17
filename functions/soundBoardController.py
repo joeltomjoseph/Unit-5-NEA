@@ -1,6 +1,4 @@
 import mido
-import time
-from collections import deque
 
 from functions import soundBoardRecording as audioRecording
 

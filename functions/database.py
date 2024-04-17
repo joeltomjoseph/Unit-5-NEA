@@ -28,7 +28,7 @@ def createStaffTable(cursor: sql.Cursor):
 def createPupilTable(cursor: sql.Cursor):
     sql = '''
     CREATE TABLE IF NOT EXISTS tbl_Pupils (
-        memberID INTEGER PRIMARY KEY,
+        pupilID INTEGER PRIMARY KEY,
         firstName VARCHAR(10),
         surname VARCHAR(20),
         accountID INTEGER,
@@ -85,7 +85,7 @@ def createSetupGroupsTable(cursor: sql.Cursor):
         pupilID INTEGER,
         PRIMARY KEY (eventID, pupilID),
         FOREIGN KEY (eventID) REFERENCES tbl_Events(eventID) ON DELETE CASCADE,
-        FOREIGN KEY (pupilID) REFERENCES tbl_Pupils(memberID) ON DELETE CASCADE
+        FOREIGN KEY (pupilID) REFERENCES tbl_Pupils(pupilID) ON DELETE CASCADE
     );'''
     cursor.execute(sql)
 
@@ -102,7 +102,7 @@ def populateClassesTable(cursor: sql.Cursor):
             cursor.execute(sql, (year, regClass))
 
 def createAllTables(cursor: sql.Cursor):
-    ''' Call all the functions to create the tables '''
+    ''' Call all the functions to create the tables and populate them if they are empty.'''
     createAccountTable(cursor)
     createStaffTable(cursor)
     createPupilTable(cursor)
@@ -110,6 +110,9 @@ def createAllTables(cursor: sql.Cursor):
     createEventTable(cursor)
     createLocationsTable(cursor)
     createSetupGroupsTable(cursor)
+    
+    if len(getAllRows(cursor, 'tbl_Locations')) == 0: populateLocationsTable(cursor) # If the table is empty, populate it with default locations
+    if len(getAllRows(cursor, 'tbl_Classes')) == 0: populateClassesTable(cursor) # If the table is empty, populate it with default classes
 
 def insertData(connection: sql.Connection, cursor: sql.Cursor, tableName, data: list):
     ''' Function to insert data into a table. '''
@@ -126,15 +129,15 @@ def getAllRows(cursor, tableName):
 
 def fetchRowByCondition(cursor: sql.Cursor, tableName, condition):
     ''' Function to fetch a specific row from a table based on a condition. '''
-    sql = f"SELECT * FROM {tableName} WHERE {condition}"
-    cursor.execute(sql)
+    sql = f"SELECT * FROM {tableName} WHERE ?"
+    cursor.execute(sql, (condition,))
     row = cursor.fetchone()
     return row
 
 def deleteRowWithID(connection: sql.Connection, cursor: sql.Cursor, tableName, idName, id):
     ''' Function to delete a row from a table with a given ID. '''
-    sql = f"DELETE FROM {tableName} WHERE {idName}=?"
-    cursor.execute(sql, (id,))
+    sql = f"DELETE FROM {tableName} WHERE ?=?"
+    cursor.execute(sql, (idName, id))
     connection.commit()
 
 def login(cursor: sql.Cursor, username: str, password: str) -> list | None:
@@ -173,8 +176,8 @@ def updateEvent(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
     cursor.execute(sql, data)
     connection.commit()
 
-    sql = f"DELETE FROM tbl_SetupGroups WHERE eventID={id}"
-    cursor.execute(sql)
+    sql = f"DELETE FROM tbl_SetupGroups WHERE eventID=?"
+    cursor.execute(sql, (id,))
     connection.commit()
 
     setupGroupsData = [(id, memberID) for memberID in memberSetupIDs]
@@ -188,20 +191,20 @@ def removeEvent(connection: sql.Connection, cursor: sql.Cursor, id):
     cursor.execute(sql)
     connection.commit()
 
-    # sql = f"DELETE FROM tbl_SetupGroups WHERE eventID={id}"
-    # cursor.execute(sql)
-    # connection.commit()
-
-def joinSetupGroup(connection: sql.Connection, cursor: sql.Cursor, eventID, memberID):
-    ''' Function to join a Senior/Junior pupil to a setup group. '''
-    sql = f"INSERT INTO tbl_SetupGroups(eventID, pupilID) VALUES (?, ?)"
-    cursor.execute(sql, (eventID, memberID))
+    sql = f"DELETE FROM tbl_SetupGroups WHERE eventID={id}"
+    cursor.execute(sql)
     connection.commit()
 
-def leaveSetupGroup(connection: sql.Connection, cursor: sql.Cursor, eventID, memberID):
+def joinSetupGroup(connection: sql.Connection, cursor: sql.Cursor, eventID, pupilID):
+    ''' Function to join a Senior/Junior pupil to a setup group. '''
+    sql = f"INSERT INTO tbl_SetupGroups(eventID, pupilID) VALUES (?, ?)"
+    cursor.execute(sql, (eventID, pupilID))
+    connection.commit()
+
+def leaveSetupGroup(connection: sql.Connection, cursor: sql.Cursor, eventID, pupilID):
     ''' Function to leave a Senior/Junior pupil from a setup group. '''
     sql = f"DELETE FROM tbl_SetupGroups WHERE eventID=? AND pupilID=?"
-    cursor.execute(sql, (eventID, memberID))
+    cursor.execute(sql, (eventID, pupilID))
     connection.commit()
 
 def getLatestEventsDetails(cursor: sql.Cursor) -> str:
@@ -211,7 +214,7 @@ def getLatestEventsDetails(cursor: sql.Cursor) -> str:
         LEFT OUTER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
         LEFT OUTER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
         LEFT OUTER JOIN tbl_SetupGroups ON tbl_SetupGroups.eventID = tbl_Events.eventID
-        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID
+        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.pupilID
 		LEFT OUTER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID 
         WHERE tbl_Events.dateOfEvent >= DATE()
         GROUP by tbl_Events.eventID
@@ -223,15 +226,6 @@ def getLatestEventsDetails(cursor: sql.Cursor) -> str:
     formatted = '' if len(rows) != 0 else "No events found."
     for row in rows:
         formatted += f'{row[0]} in the {row[6]}\n{row[1]} at {row[2]}\n{row[5]}\n\n'
-
-    # if len(rows) == 3:
-    #     formatted = f'{" - ".join(str(i) for i in rows[0])}\n\n{" - ".join(str(i) for i in rows[1])}\n\n{" - ".join(str(i) for i in rows[2])}'
-    # elif len(rows) == 2:
-    #     formatted = f'{" - ".join(str(i) for i in rows[0])}\n\n{" - ".join(str(i) for i in rows[1])}'
-    # elif len(rows) == 1:
-    #     formatted = f'{" - ".join(str(i) for i in rows[0])}'
-    # else:
-    #     formatted = "No events found."
     return formatted
 
 def getAllEventsDetails(cursor: sql.Cursor) -> list:
@@ -241,7 +235,7 @@ def getAllEventsDetails(cursor: sql.Cursor) -> list:
         LEFT OUTER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
         LEFT OUTER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
         LEFT OUTER JOIN tbl_SetupGroups ON tbl_SetupGroups.eventID = tbl_Events.eventID
-        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID
+        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.pupilID
 		LEFT OUTER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID 
 		GROUP by tbl_Events.eventID;'''
     cursor.execute(sql)
@@ -255,7 +249,7 @@ def getUpcomingEventsDetails(cursor: sql.Cursor) -> list:
         LEFT OUTER JOIN tbl_Staff ON tbl_Events.requestedBy = tbl_Staff.staffID
         LEFT OUTER JOIN tbl_Locations ON tbl_Events.locationID = tbl_Locations.locationID
         LEFT OUTER JOIN tbl_SetupGroups ON tbl_SetupGroups.eventID = tbl_Events.eventID
-        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.memberID
+        LEFT OUTER JOIN tbl_Pupils ON tbl_SetupGroups.pupilID = tbl_Pupils.pupilID
 		LEFT OUTER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID 
 		WHERE tbl_Events.dateOfEvent >= DATE()
         GROUP by tbl_Events.eventID
@@ -284,7 +278,7 @@ def getLocationsandIDs(cursor: sql.Cursor) -> list:
 
 def getAllMemberDetails(cursor: sql.Cursor) -> list:
     ''' Function to get the details of all members. Gets relevant details to be displayed on the Members Page. '''
-    sql = f'''SELECT tbl_Pupils.memberID, tbl_Pupils.firstName, tbl_Pupils.surname, tbl_Accounts.username, tbl_Classes.yearGroup || tbl_Classes.registrationClass, tbl_Pupils.studentEmail, tbl_Pupils.dateOfBirth, tbl_Pupils.house
+    sql = f'''SELECT tbl_Pupils.pupilID, tbl_Pupils.firstName, tbl_Pupils.surname, tbl_Accounts.username, tbl_Classes.yearGroup || tbl_Classes.registrationClass, tbl_Pupils.studentEmail, tbl_Pupils.dateOfBirth, tbl_Pupils.house
         FROM tbl_Pupils INNER JOIN tbl_Classes ON tbl_Pupils.classID = tbl_Classes.classID
         INNER JOIN tbl_Accounts ON tbl_Pupils.accountID = tbl_Accounts.accountID; '''
     cursor.execute(sql)
@@ -293,7 +287,7 @@ def getAllMemberDetails(cursor: sql.Cursor) -> list:
 
 def getMemberDetails(cursor: sql.Cursor, id: int) -> list:
     ''' Function to get the details of a member based on their accountID. '''
-    sql = f'''SELECT tbl_Pupils.memberID, tbl_Pupils.firstName, tbl_Pupils.surname, tbl_Accounts.username, tbl_Pupils.classID, tbl_Pupils.studentEmail, tbl_Pupils.dateOfBirth, tbl_Pupils.house
+    sql = f'''SELECT tbl_Pupils.pupilID, tbl_Pupils.firstName, tbl_Pupils.surname, tbl_Accounts.username, tbl_Pupils.classID, tbl_Pupils.studentEmail, tbl_Pupils.dateOfBirth, tbl_Pupils.house
         FROM tbl_Pupils INNER JOIN tbl_Accounts ON tbl_Pupils.accountID = tbl_Accounts.accountID WHERE tbl_Pupils.accountID=?; '''
     cursor.execute(sql, (id,))
     row = cursor.fetchone()
@@ -316,13 +310,17 @@ def insertDataIntoMemberTable(connection: sql.Connection, cursor: sql.Cursor, da
 
 def updateMember(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
     ''' Function to update a member in the 'tbl_Pupils' table. '''
-    sql = f"UPDATE tbl_Pupils SET firstName=?, surname=?, accountID=?, classID=?, studentEmail=?, dateOfBirth=?, house=? WHERE memberID={id}"
+    sql = f"UPDATE tbl_Pupils SET firstName=?, surname=?, accountID=?, classID=?, studentEmail=?, dateOfBirth=?, house=? WHERE pupilID={id}"
     cursor.execute(sql, data)
     connection.commit()
 
 def removeMember(connection: sql.Connection, cursor: sql.Cursor, id):
-    ''' Function to remove a member from the 'tbl_Pupils' table. '''
-    sql = f"DELETE FROM tbl_Pupils WHERE memberID={id}"
+    ''' Function to remove a member from the 'tbl_Pupils' and the 'tbl_Accounts' table. '''
+    sql = f"DELETE FROM tbl_Accounts WHERE accountID=(SELECT accountID FROM tbl_Pupils WHERE pupilID={id})"
+    cursor.execute(sql)
+    connection.commit()
+
+    sql = f"DELETE FROM tbl_Pupils WHERE pupilID={id}"
     cursor.execute(sql)
     connection.commit()
 
@@ -355,7 +353,11 @@ def updateStaff(connection: sql.Connection, cursor: sql.Cursor, data: list, id):
     connection.commit()
 
 def removeStaff(connection: sql.Connection, cursor: sql.Cursor, id):
-    ''' Function to remove a staff member from the 'tbl_Staff' table. '''
+    ''' Function to remove a staff member from the 'tbl_Staff' and 'tbl_Accounts' table. '''
+    sql = f"DELETE FROM tbl_Accounts WHERE accountID=(SELECT accountID FROM tbl_Staff WHERE staffID={id})"
+    cursor.execute(sql)
+    connection.commit()
+
     sql = f"DELETE FROM tbl_Staff WHERE staffID={id}"
     cursor.execute(sql)
     connection.commit()
@@ -379,8 +381,8 @@ def getAccountsAndIDs(cursor: sql.Cursor) -> list:
     return formattedRows
 
 def getUserID(cursor: sql.Cursor, accountID: int) -> int:
-    ''' Function to get the memberID of a user with a given accountID. '''
-    sql = f"SELECT memberID FROM tbl_Pupils WHERE accountID=?"
+    ''' Function to get the ID of a user with a given accountID. '''
+    sql = f"SELECT pupilID FROM tbl_Pupils WHERE accountID=?"
     cursor.execute(sql, (accountID,))
     row = cursor.fetchone()
 
@@ -406,7 +408,7 @@ def getUserEmail(cursor: sql.Cursor, accountID: int) -> str:
 
 def getUserEmailWithUserID(cursor: sql.Cursor, userID: int) -> str:
     ''' Function to get the email of a user with a given userID. '''
-    sql = f"SELECT studentEmail FROM tbl_Pupils WHERE memberID=?"
+    sql = f"SELECT studentEmail FROM tbl_Pupils WHERE pupilID=?"
     cursor.execute(sql, (userID,))
     row = cursor.fetchone()
 

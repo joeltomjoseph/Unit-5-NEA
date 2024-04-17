@@ -253,7 +253,7 @@ class LoginPage(ui.PageStructure):
             messagebox.showerror('Error', 'Please ensure all fields are filled in.')
             return
         
-        sql = '''SELECT p.memberID FROM tbl_Pupils as p
+        sql = '''SELECT p.pupilID FROM tbl_Pupils as p
         INNER JOIN tbl_Accounts as a ON p.accountID = a.accountID
         WHERE a.username = ? AND p.studentEmail = ? AND p.dateOfBirth = ?'''
 
@@ -386,6 +386,9 @@ class LoginPage(ui.PageStructure):
             messagebox.showinfo('Success', 'Password Updated Successfully.')
             self.updatePasswordWindow.destroy()
 
+            self.passwordField.delete(0, 'end') # Clear the password field
+            self.passwordField.focus_set() # Focus on the password field
+
     def login(self, event=None):
         ''' Function to handle the login process. Validate the username and password, then attempt to login, and set the access level depending on the details linked to the account. '''
         if validation.validateUsername(self.usernameField, self.usernameField.get()) and validation.validatePassword(self.passwordField, self.passwordField.get()):
@@ -460,17 +463,18 @@ class Dashboard(ui.PageStructure):
 
         # Create a frame for the time/date and other information at bottom
         self.bottomFrame = ttk.Frame(self, style='TFrame')
-        # self.bottomFrame.pack(side='bottom', fill='x', after=self.menuBar, anchor='s')
         self.bottomFrame.place(relx=0, rely=0.95, relwidth=1, relheight=0.05, anchor='nw')
+        self.bottomFrame.grid_columnconfigure([0,1,2], weight=1, uniform='column')
+        self.bottomFrame.grid_rowconfigure([0], weight=1)
         
-        self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='ItalicCaption.TLabel')
-        self.userLabel.pack(side='left', expand=True)
+        self.userLabel = ttk.Label(self.bottomFrame, text='Logged in as: PLACEHOLDER', style='BoldCaption.TLabel', anchor='center')
+        self.userLabel.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
-        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.6', style='ItalicCaption.TLabel')
-        self.versionLabel.pack(side='right', expand=True)
+        self.timeLabel = ttk.Label(self.bottomFrame, text='', style='BoldCaption.TLabel', anchor='center')
+        self.timeLabel.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
 
-        self.timeLabel = ttk.Label(self.bottomFrame, text='', style='ItalicCaption.TLabel')
-        self.timeLabel.pack(side='bottom', expand=True)
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.7', style='BoldCaption.TLabel', anchor='center')
+        self.versionLabel.grid(row=0, column=2, padx=10, pady=10, sticky='nsew')
 
         self.time() # Call the time function to start updating the time at the bottom of the window
         self.updatePage() # Call the updater function to start updating the page (e.g. upcoming events)
@@ -524,7 +528,7 @@ class DocumentationPage(ui.PageStructure):
     
     def addCreateRotaButton(self):
         ''' If the user is an admin/Head of the Team, add a button to create a new rota above the accordion and update the positions accordingly. '''
-        if ui.ACCESS_LEVEL == 'Admin':
+        if ui.ACCESS_LEVEL == 'Admin' or ui.ACCESS_LEVEL == 'Head Of the Team':
             self.createRotaButton.place(relx=0, rely=0.1, relwidth=0.3, relheight=0.1, anchor='nw')
             self.accordion.place(relx=0, rely=0.2, relwidth=0.3, relheight=0.8, anchor='nw')
         else:
@@ -588,9 +592,9 @@ class MemberandStaffInformationPage(ui.PageStructure):
         # Query the database to get the number of times each member has taken an event
         cursor.execute('''SELECT p.firstName || ' ' || p.surname || ' ' || c.yearGroup || c.registrationClass, COUNT(*) 
                        FROM tbl_SetupGroups as sg 
-                       INNER JOIN tbl_Pupils as p ON sg.pupilID = p.memberID 
+                       INNER JOIN tbl_Pupils as p ON sg.pupilID = p.pupilID 
                        INNER JOIN tbl_Classes as c ON p.classID = c.classID
-                       GROUP BY pupilID ORDER BY COUNT(*) DESC LIMIT 10''')
+                       GROUP BY sg.pupilID ORDER BY COUNT(*) DESC LIMIT 10''')
         result = cursor.fetchall()
 
         # Separate the Members and the count of events into their own lists
@@ -615,7 +619,7 @@ class MemberandStaffInformationPage(ui.PageStructure):
         # Query the database to get the number of times each member has taken an event
         cursor.execute('''SELECT p.house, COUNT(*) 
                        FROM tbl_SetupGroups as sg 
-                       INNER JOIN tbl_Pupils as p ON sg.pupilID = p.memberID
+                       INNER JOIN tbl_Pupils as p ON sg.pupilID = p.pupilID
                        GROUP BY p.house ORDER BY COUNT(*) DESC''')
         result = cursor.fetchall()
 
@@ -935,7 +939,7 @@ class SettingsPage(ui.PageStructure):
         ttk.Label(self.personalFrame, text="Username*").pack()
         usernameEntry = ttk.Entry(self.personalFrame)
         usernameEntry.insert(0, data[3][0])
-        usernameEntry.configure(state='readonly')
+        usernameEntry.configure(state='disabled')
         usernameEntry.pack()
         ttk.Label(self.personalFrame, text=data[3][1]).pack()
         ui.createTooltip(usernameEntry, 'Your Username cannot be changed.')
@@ -944,7 +948,7 @@ class SettingsPage(ui.PageStructure):
         roleEntry = ttk.Combobox(self.personalFrame, state='readonly', values=['Admin', 'Staff'])
         roleEntry.configure(validate='focusout', validatecommand=lambda: validation.validationCallback(roleEntry, validation.presenceCheck))
         roleEntry.set(data[4])
-        roleEntry.configure(state='readonly')
+        roleEntry.configure(state='disabled')
         roleEntry.pack()
         ui.createTooltip(roleEntry, 'Your Role cannot be changed.')
 
@@ -998,7 +1002,7 @@ class SettingsPage(ui.PageStructure):
         ttk.Label(self.personalFrame, text="Username*").pack()
         usernameEntry = ttk.Entry(self.personalFrame)
         usernameEntry.insert(0, data[3][0])
-        usernameEntry.configure(state='readonly')
+        usernameEntry.configure(state='disabled')
         usernameEntry.pack()
         ttk.Label(self.personalFrame, text=data[3][1]).pack()
         ui.createTooltip(usernameEntry, 'Your Username cannot be changed.')
@@ -1006,7 +1010,7 @@ class SettingsPage(ui.PageStructure):
         ttk.Label(self.personalFrame, text="Class*").pack()
         classEntry = ttk.Combobox(self.personalFrame, state='readonly', values=classValues)
         classEntry.set(data[4])
-        classEntry.configure(state='readonly')
+        classEntry.configure(state='disabled')
         classEntry.pack()
         ui.createTooltip(classEntry, 'Your Class cannot be changed.')
 
@@ -1075,9 +1079,9 @@ class FAQPage(ttk.Toplevel):
             Staff can access the following features;\n\t- Managing (Adding/Editing and Removing) Events\n\t- Viewing Current Documentation\n\t- Connecting to and controlling the Soundboard\n\n
             Senior Pupils can access the following features;\n\t- Viewing All Events and assigning themselves to an event\n\t- Managing all Documentation\n\t- Connecting to and controlling the Soundboard\n\n
             Junior Pupils can access the following features;\n\t- Viewing All Events and assigning themselves to an event\n\t- Viewing Current Documentation\n\t- Connecting to and controlling the Soundboard\n\n''',
-            'Login Page': '''This page allows you to reset your password using the Forgot Password button, this will prompt you to enter your username along with it's associated email and date of birth to verify that the account is yours. An email will then be sent with a random code - enter the code correctly and you will be able to set a new password.''',
+            'Login Page': '''This page allows you to reset your password using the Forgot Password button, this will prompt you to enter your username along with it's associated email and date of birth to verify that the account is yours. \n\nAn email will then be sent with a random code - enter the code correctly and you will be able to set a new password.''',
             'Dashboard': '''The Dashboard has buttons to the rest of the program - depending on the user's access level, certain buttons will be disabled. ''',
-            'Upcoming Events': '''This Page shows a table that can either display all events stored in the system or the upcoming events (from today onwards) using a toggle at the top "Show All Events".\n\nIf the user is a staff member (Admin/Staff/Head of the Team), the buttons on the top will be Add/Edit and Delete Events. If the user is a pupil (Junior or Senior), those buttons will be replaced with a single button to join/leave the setup group for the selected event.\n\nUsers are also able to search through all records using teh search bar and sort the results by clicking on the column heading.''',
+            'Upcoming Events': '''This Page shows a table that can either display all events stored in the system or the upcoming events (from today onwards) using a toggle at the top "Show All Events".\n\nIf the user is a staff member (Admin/Staff/Head of the Team), the buttons on the top will be Add/Edit and Delete Events. \n\nIf the user is a pupil (Junior or Senior), those buttons will be replaced with a single button to join/leave the setup group for the selected event.\n\nUsers are also able to search through all records using the search bar and sort the results by clicking on the column heading.''',
             'View Working Documentation': '''Shows documentation stored in the Current Working Documentation folder. Videos do not play audio. If the user is an Admin/Head of the Team, an extra button will be shown allowing them to Generate a New Random Rota - this will randomly choose members in the database and create a Word Document for a 2 week rota in both the Stinson Hall and Sports Hall. This is created from a template stored in the Templates Folder.''',
             'Member and Staff Information': '''Allows the user to view all pupils, staff and statistics in the system. Only available to Admins/Head of the Team. 3 buttons to Add/Edit or Delete pupils/Staff.''',
             'Archive': '''Shows documentation stored in the Archive Folder.''',
@@ -1101,9 +1105,14 @@ class FAQPage(ttk.Toplevel):
 ''' Main Program '''
 #CONSTANTS
 generalFunctions.createTempFolder() # Create the temp folder if it doesnt exist
-connection = sql.connect(generalFunctions.resourcePath("Contents/TestDatabase.db"))  # Establish a connection to the database
+
+connection = sql.connect(generalFunctions.resourcePath("Contents/database.db"))  # Establish a connection to the database
 cursor = connection.cursor() # Create a cursor object to execute SQL queries
+
 database.createAllTables(cursor) # Create all the tables in the database if they don't already exist
+if len(database.getAllRows(cursor, 'tbl_Accounts')) == 0: # If the table is empty, create an admin account
+    database.createAccount(connection, cursor, ('admin000',))
+    database.insertDataIntoStaffTable(connection, cursor, ('Admin', 'Admin', 1, 'Admin', 'agssoundandlighting@gmail.com'))
 
 app = MainApp()
 app.mainloop()

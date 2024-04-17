@@ -337,7 +337,8 @@ class updatedTableview(Tableview):
 
         if row and ACCESS_LEVEL in ['Admin', 'Staff']: # If a row is selected and the user is an admin or Staff, enable the buttons
             self.setupButton.pack_forget()
-            self.removeFiltersButton.pack_configure(side='left', fill='both', padx=5, pady=5)
+            self.master.toggleButton.pack_configure(side='left', fill='both', padx=10, pady=10)
+            self.removeFiltersButton.pack_configure(side='left', before=self.master.toggleButton, fill='both', padx=5, pady=5)
             self.deleteButton.pack(side='right', fill='both', padx=10, pady=10)
             self.addButton.pack(side='right', fill='both', padx=10, pady=10)
             self.editButton.pack(side='right', fill='both', padx=10, pady=10)
@@ -353,8 +354,8 @@ class updatedTableview(Tableview):
             
             self.setupButton.configure(command=self.master.joinSetupGroup)
             self.setupButton.pack(side='right', fill='both', padx=10, pady=10)
-            self.master.toggleButton.pack_configure(side='left',  fill='both', padx=10, pady=10)
-            self.removeFiltersButton.pack(side='left', fill='both', padx=5, pady=5)
+            self.master.toggleButton.pack_configure(side='left', fill='both', padx=10, pady=10)
+            self.removeFiltersButton.pack_configure(side='left', before=self.master.toggleButton, fill='both', padx=5, pady=5)
 
 class EventsTableView(ttk.Frame):
     ''' Class to create the tableview, allowing the user to view the data in a table format. '''
@@ -371,8 +372,8 @@ class EventsTableView(ttk.Frame):
         self.table.pack(side='top', fill='both', expand=True)
 
         # Add the toggle button to show all events
-        self.toggleButton = ttk.Checkbutton(self.table.frame, text='Show All Events', command=self.toggleEventVisibility)
-        self.toggleButton.pack(side='right',  fill='both', padx=10, pady=10)
+        self.toggleButton = ttk.Checkbutton(self.table.frame, text='Show All Events', command=self.toggleEventVisibility, style='Roundtoggle.TCheckbutton')
+        self.toggleButton.pack(side='right', before=self.table.removeFiltersButton, fill='both', padx=10, pady=10)
 
         self.currentTableState = database.getUpcomingEventsDetails # Set the current table state to show upcoming events
 
@@ -398,11 +399,14 @@ class EventsTableView(ttk.Frame):
                     database.joinSetupGroup(self.connection, self.cursor, data[0], database.getUserID(self.cursor, ACCOUNT_ID))
                     self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
 
-                    generalFunctions.sendEmail(database.getUserEmail(self.cursor, ACCOUNT_ID), f'Subject: Sound and Lighting: Setup Event\n\nYou have joined the setup group for the event "{data[0]}" on {data[1]} at {data[2]}.')
+                    Messagebox.show_info('You have joined the setup group for this event.', 'Success')
+
+                    generalFunctions.sendEmail(database.getUserEmail(self.cursor, ACCOUNT_ID), f'Subject: Sound and Lighting: Setup Event\n\nYou have joined the setup group for the event "{data[1]}" on {data[2]} at {data[3]}.')
                 except database.sql.IntegrityError:
-                    #Messagebox.show_error('You are already a part of the setup group for this event.', 'Error')
                     if Messagebox.show_question('You are already a part of the setup group for this event. Would you like to leave the setup group?', 'Error') == 'Yes':
                         database.leaveSetupGroup(self.connection, self.cursor, data[0], database.getUserID(self.cursor, ACCOUNT_ID))
+
+                        Messagebox.show_info('You have left the setup group for this event.', 'Success')
 
                         self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements'])
                 except Exception as e:
@@ -410,6 +414,9 @@ class EventsTableView(ttk.Frame):
             elif question == 'Leave':
                 try:
                     database.leaveSetupGroup(self.connection, self.cursor, data[0], database.getUserID(self.cursor, ACCOUNT_ID))
+
+                    Messagebox.show_info('You have left the setup group for this event.', 'Success')
+
                     self.table.build_table_data(rowdata=self.currentTableState(self.cursor), coldata=['Event ID', 'Name', 'Date', 'Time', 'Duration', 'Requested By', 'Setup By', 'Location', 'Requirements']) # rebuild the table with the updated data
                 except Exception as e:
                     Messagebox.show_error(f'An error occurred: {e}', 'Error')
@@ -677,8 +684,13 @@ class MemberTableView(ttk.Frame):
 
     def submit(self):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
-        data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
+        data = self.eventForm.getData(self.eventForm.formFrame)
         #print(data)
+        
+        existingAccounts = [account.split(': ')[1] for account in database.getAccountsAndIDs(self.cursor)] # ie. ['jjoseph553', 'bjohnston123']
+        if data[2] in existingAccounts: # if the username already exists in the database
+            Messagebox.show_error('An account with that username already exists. Please choose a different username.', 'Error')
+            return
 
         if data == None: return # If the data is None due to validation, return
         
@@ -828,8 +840,14 @@ class StaffTableView(ttk.Frame):
 
     def submit(self):
         ''' Handles when the submit button is clicked - get the data from the form and commit it to the database. '''
-        data = self.eventForm.getData(self.eventForm.formFrame) #TODO - add validation, check if account with username already exists
+        data = self.eventForm.getData(self.eventForm.formFrame)
         #print(data)
+
+        existingAccounts = [account.split(': ')[1] for account in database.getAccountsAndIDs(self.cursor)]
+        if data[2] in existingAccounts: # if the username already exists in the database
+            Messagebox.show_error('An account with that username already exists. Please choose a different username.', 'Error')
+            return
+        
         if data == None: return # If the data is None due to validation, return
 
         data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'Password1' and update the value of data[2] to the accountID

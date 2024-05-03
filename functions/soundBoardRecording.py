@@ -36,34 +36,35 @@ def recordAudio():
     deviceIndex = findDeviceIndex(p, b'qu-24')
     if deviceIndex == None:
         print('QU-24 is not Connected!')
+        p.terminate()
     else:
         chunk = 1024  # Record in chunks of 1024 samples
         sample_format = pyaudio.paInt24  # 24 bits per sample, as per the QU-24
         channels = 32 # 32 channels of audio, as per the QU-24      #p.get_device_info_by_index(deviceIndex)['maxInputChannels']
         fs = 48000  # Record at 48000 samples per second, as per the QU-24
         maxSeconds = 1000 # Max recording time in seconds
-        STOP_FLAG = False # Flag to control continuous recording, controllable outside the function
+        global STOP_FLAG; STOP_FLAG = False # Flag to control continuous recording, controllable outside the function
         filename = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S") + ".wav" # Filename for the recorded audio is the current date and time
         filePath = resourcePath(f"Contents/Recordings/{filename}") # Filepath for the recorded audio
 
         with wave.open(filePath, 'wb') as fileObject:
             stream = p.open(format=sample_format, channels=channels, rate=fs, frames_per_buffer=chunk, input=True, input_device_index=deviceIndex)
 
+            # Set up the wave file
+            fileObject.setnchannels(2) # Set the number of channels to 2 (Stereo)
+            fileObject.setsampwidth(p.get_sample_size(sample_format)) # Set the sample width to the sample format (24 bits per sample)
+            fileObject.setframerate(fs) # Set the frame rate to the sample rate (48000 samples per second)
+
             frames = []  # Initialize array to store frames
             print('RECORDING STARTED')
             
             while True:
+                if STOP_FLAG or len(frames) > int(fs / chunk * maxSeconds): # if the stopFlag is True or the length of frames is greater than max recording length, stop recording
+                    break
+
                 data = stream.read(chunk).hex() # Read the data and convert it to hex
                 filteredData = b''.join([bytes.fromhex(data[i:i+12]) for i in range(0, len(data), 192)]) # Filter the data to remove the extra empty bytes
                 frames.append(filteredData) # Append the filtered data to the frames array
-                
-                if STOP_FLAG or len(frames) > int(fs / chunk * maxSeconds): # if the stopFlag is True or the length of frames is greater than max recording length, stop recording
-                    break
-            
-            # for i in range(0, int(fs / chunk * seconds)):
-            #     data = stream.read(chunk).hex()
-            #     filteredData = b''.join([bytes.fromhex(data[i:i+12]) for i in range(0, len(data), 192)])
-            #     frames.append(filteredData)
 
             # Stop and close the stream 
             stream.stop_stream()
@@ -71,9 +72,6 @@ def recordAudio():
             # Terminate the PortAudio interface
             p.terminate()
             print('FINISHED RECORDING')
-            # Set up the wave file and write the data
-            fileObject.setnchannels(2)
-            fileObject.setsampwidth(p.get_sample_size(sample_format))
-            fileObject.setframerate(fs)
+            # Write the frames to the file
             fileObject.writeframes(b''.join(frames))
             fileObject.close()

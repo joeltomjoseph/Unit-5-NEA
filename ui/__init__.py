@@ -250,7 +250,7 @@ class MenuBar(ttk.Frame):
         self.logoutButton.pack(side="right", padx=10, pady=5)
 
         # Create FAQ/Help button
-        self.helpButton = ttk.Button(self, text="FAQ", image=controller.style.images['help'], compound='left', command=lambda: controller.showFrame(controller, showFAQ = True), style='Close.secondary.TButton')
+        self.helpButton = ttk.Button(self, text="Info", image=controller.style.images['help'], compound='left', command=lambda: controller.showFrame(controller, showFAQ = True), style='Close.secondary.TButton')
         self.helpButton.pack(side="right", padx=10, pady=5)
 
         if lastPage:
@@ -263,7 +263,7 @@ class updatedTableview(Tableview):
     This changes the '_build_search_frame' function to include more controls such as an Add, Edit and Delete button. '''
     def __init__(self, master=None, controller=None, eventPage: bool = False, *args, **kwargs):
             self.controller = controller
-            super().__init__(master, autoalign=True, *args, **kwargs)
+            super().__init__(master, autoalign=True, pagesize=20, height=20, *args, **kwargs)
 
             self.view.configure(selectmode='browse', takefocus=False) # Set the selectmode to browse so only one row can be selected at a time
             self.view.bind('<<TreeviewSelect>>', self.updateButtons) # Bind the TreeviewSelect event to the updateButtons function to update the state of the buttons when a row is selected
@@ -687,12 +687,12 @@ class MemberTableView(ttk.Frame):
         data = self.eventForm.getData(self.eventForm.formFrame)
         #print(data)
         
+        if data == None: return # If the data is None due to validation, return
+
         existingAccounts = [account.split(': ')[1] for account in database.getAccountsAndIDs(self.cursor)] # ie. ['jjoseph553', 'bjohnston123']
         if data[2] in existingAccounts: # if the username already exists in the database
             Messagebox.show_error('An account with that username already exists. Please choose a different username.', 'Error')
             return
-
-        if data == None: return # If the data is None due to validation, return
         
         data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'Password1' and update the value of data[2] to the accountID
         database.insertDataIntoMemberTable(self.connection, self.cursor, data)
@@ -843,12 +843,12 @@ class StaffTableView(ttk.Frame):
         data = self.eventForm.getData(self.eventForm.formFrame)
         #print(data)
 
+        if data == None: return # If the data is None due to validation, return
+
         existingAccounts = [account.split(': ')[1] for account in database.getAccountsAndIDs(self.cursor)]
         if data[2] in existingAccounts: # if the username already exists in the database
             Messagebox.show_error('An account with that username already exists. Please choose a different username.', 'Error')
             return
-        
-        if data == None: return # If the data is None due to validation, return
 
         data[2] = database.createAccount(self.connection, self.cursor, [data[2]]) # create account with default password 'Password1' and update the value of data[2] to the accountID
         database.insertDataIntoStaffTable(self.connection, self.cursor, data)

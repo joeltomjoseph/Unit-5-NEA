@@ -327,8 +327,12 @@ class LoginPage(ui.PageStructure):
     def resetPassword(self):
         ''' Function to handle resetting the password. '''
         if validation.validatePassword(self.passwordEntry, self.passwordEntry.get()) and validation.validatePassword(self.confirmPasswordEntry, self.confirmPasswordEntry.get()):
-            if self.passwordEntry.get() != self.confirmPasswordEntry.get():
+            if self.passwordEntry.get() != self.confirmPasswordEntry.get(): # If the passwords do not match
                 messagebox.showerror('Error', 'Passwords do not match.')
+                return
+            
+            if self.passwordEntry.get() == 'Password1': # If the password is the default password
+                messagebox.showerror('Error', 'Password cannot be the default password.')
                 return
 
             sql = '''UPDATE tbl_Accounts SET password = ? WHERE username = ?'''
@@ -375,6 +379,9 @@ class LoginPage(ui.PageStructure):
     def updatePassword(self, accountID):
         ''' Function to handle updating the password. '''
         if validation.validatePassword(self.passwordEntry, self.passwordEntry.get()) and validation.validatePassword(self.confirmPasswordEntry, self.confirmPasswordEntry.get()):
+            if self.passwordEntry.get() == 'Password1':
+                messagebox.showerror('Error', 'Password cannot be the default password.')
+                return
             if self.passwordEntry.get() != self.confirmPasswordEntry.get():
                 messagebox.showerror('Error', 'Passwords do not match.')
                 return
@@ -402,10 +409,6 @@ class LoginPage(ui.PageStructure):
                     if self.accountDetails[3]: # If the account is for a student (there is a year group present)
                         if self.accountDetails[3] in ['13', '14']: # If the account is in Year 13/14 (Sixth Form)
                             self.controller.updateAccessLevel('Senior', self.accountDetails)
-                            # ui.ACCESS_LEVEL = 'Senior'
-                            # self.controller.showFrame(Dashboard, resizeTo='1920x1080+0+0')
-                            # self.controller.frames[Dashboard].userLabel.configure(text=f'Logged in as: {self.accountDetails[1]} | Year {self.accountDetails[3]}')
-                            # self.controller.unbind('<Return>')
                         else: # else the account is part of the junior school
                             self.controller.updateAccessLevel('Junior', self.accountDetails)
                     else: # else the account is for a staff member
@@ -473,7 +476,7 @@ class Dashboard(ui.PageStructure):
         self.timeLabel = ttk.Label(self.bottomFrame, text='', style='BoldCaption.TLabel', anchor='center')
         self.timeLabel.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
 
-        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 0.7', style='BoldCaption.TLabel', anchor='center')
+        self.versionLabel = ttk.Label(self.bottomFrame, text='Version: 1.0', style='BoldCaption.TLabel', anchor='center')
         self.versionLabel.grid(row=0, column=2, padx=10, pady=10, sticky='nsew')
 
         self.time() # Call the time function to start updating the time at the bottom of the window

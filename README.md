@@ -1,8 +1,11 @@
 # Unit 5 NEA
-Joel Joseph, Candidate No. 7042, Centre Number 71401
-> WJEC A2 Computer Science Coursework. A GUI for a Sound and Lighting Team within my school.
+## WJEC A2 Computer Science Coursework. A GUI for a Sound and Lighting Team within my school.
 
-**Email functionality doesn't work as I have deactivated the email account referenced in the code** therefore, errors referencing emails will be due to this.
+> Joel Joseph, Candidate No. 7042, Centre Number 71401
+
+Awarded an A* overall with 90/100 raw marks for this unit (full UMS marks)
+
+**Email functionality doesn't work as I have deactivated the email account referenced in the code** therefore, errors referencing emails will be due to this. soory
 
 ---
 ### The accounts available for the final system (V1.0):

@@ -2,7 +2,7 @@
 Joel Joseph, Candidate No. 7042, Centre Number 71401
 > WJEC A2 Computer Science Coursework. A GUI for a Sound and Lighting Team within my school.
 
-Many of the documents used within the system have been removed in order to comply with the file size requirements for submission. The usage of other documents have been shown in the walkthrough videos.
+**Email functionality doesn't work as I have deactivated the email account referenced in the code** therefore, errors referencing emails will be due to this.
 
 ---
 ### The accounts available for the final system (V1.0):
